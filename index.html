@@ -126,6 +126,16 @@
             font-size: 12px;
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
         }
+        .elevation-info {
+            margin-top: 3px;
+            font-size: 11px;
+            color: #2E7D32;
+            font-weight: bold;
+        }
+        .elevation-loading {
+            color: #757575;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -163,6 +173,7 @@
             </button>
             <div class="location-status" id="location-status">Kapalı</div>
             <div class="accuracy-info" id="accuracy-info"></div>
+            <div class="elevation-info" id="elevation-info"></div>
         </div>
         
         <div class="info">
@@ -264,6 +275,42 @@
         // Çevrimdışı durumu dinle
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
+        
+        // Rakım/yükseklik bilgisi alma fonksiyonu
+        async function getElevation(lat, lng) {
+            const elevationInfo = document.getElementById('elevation-info');
+            
+            // Çevrimdışıysa rakım bilgisi alamayız
+            if (!isOnline) {
+                elevationInfo.innerHTML = 'Rakım: İnternet bağlantısı gerekli';
+                return null;
+            }
+            
+            try {
+                elevationInfo.innerHTML = '<span class="elevation-loading">Rakım hesaplanıyor...</span>';
+                
+                // Open-Elevation API'sini kullan
+                const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`);
+                
+                if (!response.ok) {
+                    throw new Error('Rakım bilgisi alınamadı');
+                }
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    const elevation = data.results[0].elevation;
+                    elevationInfo.innerHTML = `Rakım: ${elevation.toFixed(1)} metre`;
+                    return elevation;
+                } else {
+                    throw new Error('Rakım verisi bulunamadı');
+                }
+            } catch (error) {
+                console.error('Rakım bilgisi alınırken hata oluştu:', error);
+                elevationInfo.innerHTML = 'Rakım: Hata';
+                return null;
+            }
+        }
         
         // GeoJSON dosyalarını yükleme
         function loadGeoJSONData() {
@@ -370,7 +417,7 @@
         let positionHistory = [];
         const MAX_POSITION_HISTORY = 100;
 
-        function onLocationFound(e) {
+        async function onLocationFound(e) {
             const radius = e.accuracy / 2;
             const statusElement = document.getElementById('location-status');
             const accuracyElement = document.getElementById('accuracy-info');
@@ -397,8 +444,21 @@
                 map.removeLayer(locationCircle);
             }
 
+            // Rakım bilgisini al
+            const elevation = await getElevation(
+                filteredPosition.latlng.lat, 
+                filteredPosition.latlng.lng
+            );
+
+            // Popup içeriğini oluştur (rakım bilgisiyle birlikte)
+            let popupContent = `<b>Bulunduğunuz konum</b><br>Enlem: ${filteredPosition.latlng.lat.toFixed(6)}<br>Boylam: ${filteredPosition.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(filteredPosition.accuracy)} metre`;
+            
+            if (elevation !== null) {
+                popupContent += `<br>Rakım: ${elevation.toFixed(1)} metre`;
+            }
+
             locationMarker = L.marker(filteredPosition.latlng).addTo(map)
-                .bindPopup(`<b>Bulunduğunuz konum</b><br>Enlem: ${filteredPosition.latlng.lat.toFixed(6)}<br>Boylam: ${filteredPosition.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(filteredPosition.accuracy)} metre`).openPopup();
+                .bindPopup(popupContent).openPopup();
 
             locationCircle = L.circle(filteredPosition.latlng, filteredPosition.accuracy / 2).addTo(map);
             
@@ -453,10 +513,12 @@
         function onLocationError(e) {
             const statusElement = document.getElementById('location-status');
             const accuracyElement = document.getElementById('accuracy-info');
+            const elevationInfo = document.getElementById('elevation-info');
             
             statusElement.innerHTML = 'Hata: Konum alınamadı';
             statusElement.style.color = 'red';
             accuracyElement.innerHTML = '';
+            elevationInfo.innerHTML = '';
             
             console.error("Konum bilgisi alınamadı: ", e.message);
             alert("Konum bilgisi alınamadı. Lütfen tarayıcınızın konum iznini etkinleştirin.");
@@ -465,11 +527,13 @@
         function startLocationTracking() {
             const statusElement = document.getElementById('location-status');
             const accuracyElement = document.getElementById('accuracy-info');
+            const elevationInfo = document.getElementById('elevation-info');
             
             if (navigator.geolocation) {
                 statusElement.innerHTML = 'Yüksek hassasiyetli konum aranıyor...';
                 statusElement.style.color = 'blue';
                 accuracyElement.innerHTML = 'GPS kalibrasyonu yapılıyor...';
+                elevationInfo.innerHTML = '';
                 
                 // Maksimum hassasiyet için ayarlar
                 const options = {
@@ -516,6 +580,7 @@
                 statusElement.innerHTML = 'Tarayıcınız konum desteği sağlamıyor';
                 statusElement.style.color = 'red';
                 accuracyElement.innerHTML = '';
+                elevationInfo.innerHTML = '';
                 alert("Tarayıcınız konum izleme özelliğini desteklemiyor.");
             }
         }
@@ -533,6 +598,7 @@
         function stopLocationTracking() {
             const statusElement = document.getElementById('location-status');
             const accuracyElement = document.getElementById('accuracy-info');
+            const elevationInfo = document.getElementById('elevation-info');
             
             if (locationMarker) {
                 map.removeLayer(locationMarker);
@@ -553,6 +619,7 @@
             statusElement.innerHTML = 'Kapalı';
             statusElement.style.color = '#666';
             accuracyElement.innerHTML = '';
+            elevationInfo.innerHTML = '';
             isTracking = false;
         }
 
