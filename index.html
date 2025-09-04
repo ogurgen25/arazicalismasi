@@ -6,6 +6,7 @@
     <title>Arazi Çalışma Haritası</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -27,23 +28,36 @@
             top: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
             border-radius: 8px;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-            max-width: 300px;
+            max-width: 250px;
             backdrop-filter: blur(5px);
         }
-        .control-group {
-            margin-bottom: 15px;
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 5px;
+            border-bottom: 1px solid #eee;
         }
-        .control-group h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
+        .panel-header h3 {
+            margin: 0;
             font-size: 16px;
             color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+        }
+        .panel-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .panel-content.open {
+            max-height: 500px;
+        }
+        .control-group {
+            margin-bottom: 10px;
         }
         button {
             display: block;
@@ -88,6 +102,12 @@
             font-size: 12px;
             color: #666;
         }
+        .toggle-icon {
+            transition: transform 0.3s;
+        }
+        .toggle-icon.open {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body>
@@ -95,15 +115,25 @@
     
     <div class="control-panel">
         <div class="control-group">
-            <h3>Altlık Haritalar</h3>
-            <button id="osm-btn">OpenStreetMap (Varsayılan)</button>
-            <button id="satellite-btn">Uydu Görünümü</button>
+            <div class="panel-header" id="basemap-header">
+                <h3>Altlık Haritalar</h3>
+                <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
+            </div>
+            <div class="panel-content" id="basemap-content">
+                <button id="osm-btn">OpenStreetMap (Varsayılan)</button>
+                <button id="satellite-btn">Uydu Görünümü</button>
+            </div>
         </div>
         
         <div class="control-group">
-            <h3>Katmanlar</h3>
-            <button id="havza-btn">Havza Sınırını Göster/Gizle</button>
-            <button id="mahalle-btn">Mahalle Sınırlarını Göster/Gizle</button>
+            <div class="panel-header" id="layers-header">
+                <h3>Katmanlar</h3>
+                <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
+            </div>
+            <div class="panel-content" id="layers-content">
+                <button id="havza-btn">Havza Sınırını Göster/Gizle</button>
+                <button id="mahalle-btn">Mahalle Sınırlarını Göster/Gizle</button>
+            </div>
         </div>
         
         <div class="control-group">
@@ -278,6 +308,23 @@
             isTracking = false;
         }
 
+        // Açılır-kapanır menü işlevselliği
+        document.getElementById('basemap-header').addEventListener('click', function() {
+            const content = document.getElementById('basemap-content');
+            const icon = this.querySelector('.toggle-icon');
+            
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
+        });
+
+        document.getElementById('layers-header').addEventListener('click', function() {
+            const content = document.getElementById('layers-content');
+            const icon = this.querySelector('.toggle-icon');
+            
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
+        });
+
         // Buton olayları
         document.getElementById('osm-btn').addEventListener('click', function() {
             map.removeLayer(satelliteLayer);
@@ -329,6 +376,11 @@
 
         // Varsayılan olarak OSM butonunu aktif göster
         document.getElementById('osm-btn').classList.add('active');
+        
+        // Sayfa yüklendiğinde katman menülerini açık bırak
+        document.getElementById('basemap-content').classList.add('open');
+        document.getElementById('layers-content').classList.add('open');
+        document.querySelectorAll('.toggle-icon').forEach(icon => icon.classList.add('open'));
     </script>
 </body>
 </html>
