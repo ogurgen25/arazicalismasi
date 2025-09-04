@@ -61,6 +61,14 @@
     </div>
 
     <div class="group">
+      <h2>Maske</h2>
+      <div class="layer-item"><span>Maskeyi uygula (boundary)</span>
+        <label class="switch"><input type="checkbox" id="mask-toggle" checked><span class="slider"></span></label>
+      </div>
+      <p class="hint">Boundary yoksa otomatik kapatılır. Boundary yolu: <code>Data/boundary.geojson</code></p>
+    </div>
+
+    <div class="group">
       <h2>Canlı Konum</h2>
       <div class="layer-item"><span>Konumu izle</span>
         <label class="switch"><input type="checkbox" id="watch-pos"><span class="slider"></span></label>
@@ -74,7 +82,7 @@
 
     <div class="group">
       <h2>Sınır Verisi (Maske)</h2>
-      <p class="hint">Boundary dosyası: <code>Data/boundary.geojson</code>. JPEG ve vektörler <em>bu sınır içinde</em> görünür. (HTTP sunucuda çalıştırın; <code>file://</code> CORS hatası verebilir.)</p>
+      <p class="hint">Boundary dosyası: <code>Data/boundary.geojson</code>. JPEG ve vektörler <em>bu sınır içinde</em> görünür.</p>
     </div>
   </aside>
 
@@ -118,7 +126,7 @@ require([
     constraints: { snapToZoom: false }
   });
 
-  // 2) Sınır (GeoJSON) – Maske (WGS84 beklenir)
+  // 2) Katmanlar (WGS84 beklenir)
   const boundary = new GeoJSONLayer({
     url: `${DATA_DIR}/boundary.geojson`,
     title: "Sınır (Maske)",
@@ -127,7 +135,6 @@ require([
     outFields: ["*"]
   });
 
-  // 3) JPEG Media katmanları (WGS84 extents verin)
   function imgElement(src, extent){
     return { type: "image", image: src, extent: new Extent({ ...extent, spatialReference: { wkid: 4326 } }) };
   }
@@ -141,7 +148,6 @@ require([
   const media3 = new MediaLayer({ title: "Harita 3", source: [ imgElement(`${RASTERS_DIR}/harita3.jpg`, JPEG_EXTENTS.map3) ], visible: false });
   const rasterGroup = new GroupLayer({ title: "JPEG Haritalar", layers: [media1, media2, media3] });
 
-  // 4) Mahalle (AD etiketli) ve Havza (WGS84 GeoJSON)
   const mahalleL = new GeoJSONLayer({
     url: `${DATA_DIR}/mahalle_wgs84.geojson`,
     title: 'Mahalle',
@@ -162,45 +168,61 @@ require([
     outFields: ["*"]
   });
 
-  // 5) Yükleme sırası ve maske
+  // 3) Yükleme & maskeyi güvenli uygula
   (async function init(){
     try {
       await view.when();
 
-      // Katman ekleme sırası: rasterlar (alt) -> mahalle & havza -> boundary (en üst, maske)
+      // Katman ekleme sırası
       map.addMany([rasterGroup, havzaL, mahalleL, boundary]);
 
       await Promise.all([rasterGroup.when(), boundary.when(), mahalleL.when(), havzaL.when()]);
       await Promise.all([
-        view.whenLayerView(boundary),
         view.whenLayerView(media1),
         view.whenLayerView(mahalleL)
       ]);
 
-      boundary.blendMode = 'destination-in'; // tüm alttakileri sınır içinde görünür kılar
+      // Boundary gerçekten var mı? (feature count)
+      let maskAllowed = true;
+      try {
+        const fc = await boundary.queryFeatureCount();
+        maskAllowed = (fc > 0);
+      } catch(e){ maskAllowed = false; }
 
-      // Yakınlaştır: öncelik mahalle -> havza -> JPEG extents
+      // UI mask toggle
+      const maskToggle = $("mask-toggle");
+      function applyMask(flag){ boundary.blendMode = flag ? 'destination-in' : null; }
+      maskToggle.addEventListener('change', ()=> applyMask(maskToggle.checked && maskAllowed));
+
+      if(maskAllowed){
+        applyMask(maskToggle.checked);
+      } else {
+        maskToggle.checked = false;
+        applyMask(false);
+        showToast('Boundary bulunamadı veya boş: Maske devre dışı');
+      }
+
+      // Yakınlaştırma öncelik: mahalle -> havza -> JPEG
       let go = false;
-      try { const ex = await mahalleL.queryExtent(); if(ex && ex.extent){ await view.goTo(ex.extent.expand(1.05)); go = true; } } catch(_){}
-      if(!go){ try { const ex = await havzaL.queryExtent(); if(ex && ex.extent){ await view.goTo(ex.extent.expand(1.05)); go = true; } } catch(_){}
+      try { const ex = await mahalleL.queryExtent(); if(ex && ex.extent && !ex.extent.isEmpty){ await view.goTo(ex.extent.expand(1.05)); go = true; } } catch(_){}
+      if(!go){ try { const ex = await havzaL.queryExtent(); if(ex && ex.extent && !ex.extent.isEmpty){ await view.goTo(ex.extent.expand(1.05)); go = true; } } catch(_){}
       if(!go){ const e = JPEG_EXTENTS.map1; await view.goTo(new Extent({ ...e, spatialReference:{wkid:4326} })); }
 
-      runSelfTests();
+      runSelfTests(maskAllowed);
     } catch (err) {
       console.error('Init error:', err);
       showToast('Yükleme hatası: ' + (err && err.message ? err.message : err));
     }
   })();
 
-  // 6) UI bağlama
+  // 4) UI bağlama
   $("lyr-map1").addEventListener("change", (e)=> media1.visible = e.target.checked);
   $("lyr-map2").addEventListener("change", (e)=> media2.visible = e.target.checked);
   $("lyr-map3").addEventListener("change", (e)=> media3.visible = e.target.checked);
-
   $("lyr-mahalle").addEventListener("change", (e)=> { mahalleL.visible = e.target.checked; });
   $("lyr-havza").addEventListener("change", (e)=> { havzaL.visible = e.target.checked; });
 
-  // 7) GPS katmanı
+  // 5) GPS katmanı
   const gpsLayer = new GraphicsLayer({ title: "GPS" });
   const trackLayer = new GraphicsLayer({ title: "İz" });
   map.addMany([trackLayer, gpsLayer]);
@@ -236,14 +258,15 @@ require([
   $("btn-center").addEventListener("click", ()=>{ if(lastPoint){ view.goTo({ center: lastPoint, scale: 3000 }).catch(()=>{}); } else { showToast("Önce konumunuzu açın"); } });
   $("btn-clear").addEventListener("click", ()=>{ trackLayer.removeAll(); showToast("İz temizlendi"); });
 
-  // 8) Kendi kendine testler
-  function runSelfTests(){
+  // 6) Kendi kendine testler
+  function runSelfTests(maskAllowed){
     console.group("\u2705 Kendini test et");
     try {
-      console.assert(map.layers.includes(boundary) && map.layers.includes(rasterGroup), "Temel katmanlar eklenmedi");
+      console.assert(map.layers.includes(rasterGroup), "Raster group eklenmedi");
       console.assert(!!mahalleL && !!havzaL, 'Mahalle/Havza katmanları yok');
       if(mahalleL){ console.assert(mahalleL.labelsVisible === true, 'Mahalle etiketleri açık değil'); }
       const chk = $("lyr-mahalle"); const prev = chk.checked; chk.checked = !prev; chk.dispatchEvent(new Event('change')); console.assert(mahalleL.visible === !prev, 'Mahalle görünürlüğü toggleda değişmedi'); chk.checked = prev; chk.dispatchEvent(new Event('change'));
+      console.log('Mask allowed:', maskAllowed);
     } catch(e){ console.error('Self test hata:', e); }
     console.groupEnd();
   }
