@@ -1,85 +1,243 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sade Görünüm — Sadece GeoJSON (Tam Ekran)</title>
-  <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/light/main.css" />
-  <script src="https://js.arcgis.com/4.26/"></script>
-  <style>
-    html, body, #viewDiv { height: 100%; width: 100%; margin: 0; padding: 0; }
-    #msg { position: fixed; top: 10px; left: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(15,23,42,.9); color: #e5e7eb; font: 12px system-ui; z-index: 1000; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arazi Çalışma Haritası</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            max-width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #388E3C;
+        }
+        button.active {
+            background: #FF9800;
+        }
+        button#location-btn {
+            background: #2196F3;
+        }
+        button#location-btn.active {
+            background: #FF5722;
+        }
+        .info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 15px;
+        }
+    </style>
 </head>
 <body>
-  <div id="viewDiv"></div>
-  <div id="msg" style="display:none"></div>
+    <div id="map"></div>
+    
+    <div class="control-panel">
+        <div class="control-group">
+            <h3>Altlık Haritalar</h3>
+            <button id="osm-btn">OpenStreetMap (Varsayılan)</button>
+            <button id="satellite-btn">Uydu Görünümü</button>
+        </div>
+        
+        <div class="control-group">
+            <h3>Katmanlar</h3>
+            <button id="havza-btn">Havza Sınırını Göster/Gizle</button>
+            <button id="mahalle-btn">Mahalle Sınırlarını Göster/Gizle</button>
+        </div>
+        
+        <div class="control-group">
+            <button id="location-btn">Konumumu Göster</button>
+        </div>
+        
+        <div class="info">
+            <p>Havza ve mahalle sınırları için GeoJSON dosyalarının yüklenmesi biraz zaman alabilir.</p>
+        </div>
+    </div>
 
-<script>
-require([
-  "esri/Map",
-  "esri/views/MapView",
-  "esri/layers/GeoJSONLayer",
-  "esri/geometry/Extent"
-], function(Map, MapView, GeoJSONLayer, Extent){
-  'use strict';
+    <script>
+        // Harita oluşturma
+        const map = L.map('map').setView([39.9334, 32.8597], 13); // Ankara merkezli varsayılan görünüm
 
-  // Yollar (büyük-küçük harf önemli)
-  const MAHALLE_URL = 'Data/mahalle_wgs84.geojson';
-  const HAVZA_URL   = 'Data/havza_wgs84.geojson';
+        // Altlık haritalar (Basemaps)
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-  function show(msg){ const el = document.getElementById('msg'); el.textContent = msg; el.style.display = 'block'; clearTimeout(show._t); show._t = setTimeout(()=> el.style.display='none', 3500); }
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
 
-  const map = new Map({ basemap: 'topo-vector' });
-  const view = new MapView({ container: 'viewDiv', map, center: [35,39], zoom: 6 });
+        // Katman grupları
+        const havzaLayer = L.layerGroup();
+        const mahalleLayer = L.layerGroup();
+        
+        // GeoJSON stillendirme
+        const havzaStyle = {
+            color: "#FF0000",
+            weight: 3,
+            opacity: 0.8,
+            fillOpacity: 0.1
+        };
+        
+        const mahalleStyle = {
+            color: "#0000FF",
+            weight: 2,
+            opacity: 0.7,
+            fillOpacity: 0.1
+        };
 
-  // Mahalle (AD etiketli)
-  const mahalle = new GeoJSONLayer({
-    url: MAHALLE_URL,
-    title: 'Mahalle',
-    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[0,0,0,0], outline:{ color:[51,65,85,200], width: 0.8 } } },
-    labelingInfo: [{
-      labelExpressionInfo: { expression: "$feature.AD" },
-      symbol: { type: 'text', color: [17,24,39], haloColor: [255,255,255], haloSize: 2, font: { family: 'Arial', size: 10, weight: 'bold' } }
-    }],
-    labelsVisible: true,
-    outFields: ["*"]
-  });
+        // GeoJSON dosyalarını yükleme
+        fetch('Data/havza_wgs84.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    style: havzaStyle
+                }).addTo(havzaLayer);
+            })
+            .catch(error => {
+                console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
+                alert('Havza sınırları yüklenirken hata oluştu. Dosya yolunu kontrol edin.');
+            });
 
-  // Havza
-  const havza = new GeoJSONLayer({
-    url: HAVZA_URL,
-    title: 'Havza',
-    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[34,197,94,40], outline:{ color:[16,185,129,255], width: 1 } } },
-    outFields: ["*"]
-  });
+        fetch('Data/mahalle_wgs84.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    style: mahalleStyle
+                }).addTo(mahalleLayer);
+            })
+            .catch(error => {
+                console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
+                alert('Mahalle sınırları yüklenirken hata oluştu. Dosya yolunu kontrol edin.');
+            });
 
-  (async function init(){
-    try {
-      await view.when();
-      map.addMany([havza, mahalle]);
-      await Promise.all([ havza.when(), mahalle.when() ]);
+        // Konum takibi
+        let locationMarker = null;
+        let locationCircle = null;
+        let isTracking = false;
 
-      // Extent hesapla (hangi katman doluysa ona git)
-      let exts = [];
-      try { const ex1 = await mahalle.queryExtent(); if(ex1 && ex1.extent && !ex1.extent.isEmpty){ exts.push(ex1.extent); } } catch(_){}
-      try { const ex2 = await havza.queryExtent();   if(ex2 && ex2.extent && !ex2.extent.isEmpty){ exts.push(ex2.extent); } } catch(_){}
+        function onLocationFound(e) {
+            const radius = e.accuracy / 2;
 
-      if(exts.length){
-        const xmin = Math.min.apply(null, exts.map(e=>e.xmin));
-        const ymin = Math.min.apply(null, exts.map(e=>e.ymin));
-        const xmax = Math.max.apply(null, exts.map(e=>e.xmax));
-        const ymax = Math.max.apply(null, exts.map(e=>e.ymax));
-        await view.goTo(new Extent({ xmin, ymin, xmax, ymax, spatialReference:{ wkid: 4326 } }).expand(1.05));
-      } else {
-        show('Uyarı: GeoJSON dosyaları boş veya yüklenemedi (yol/isim kontrol edin).');
-      }
-    } catch (err) {
-      console.error(err);
-      show('Hata: '+ (err && err.message ? err.message : err));
-    }
-  })();
-});
-</script>
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+            }
+            if (locationCircle) {
+                map.removeLayer(locationCircle);
+            }
+
+            locationMarker = L.marker(e.latlng).addTo(map)
+                .bindPopup("Bulunduğunuz konum").openPopup();
+
+            locationCircle = L.circle(e.latlng, radius).addTo(map);
+            
+            // Harita görünümünü konuma odakla (ilk seferinde)
+            if (!isTracking) {
+                map.setView(e.latlng, 16);
+                isTracking = true;
+            }
+        }
+
+        function onLocationError(e) {
+            alert("Konum bilgisi alınamadı: " + e.message);
+        }
+
+        // Buton olayları
+        document.getElementById('osm-btn').addEventListener('click', function() {
+            map.removeLayer(satelliteLayer);
+            osmLayer.addTo(map);
+            this.classList.add('active');
+            document.getElementById('satellite-btn').classList.remove('active');
+        });
+
+        document.getElementById('satellite-btn').addEventListener('click', function() {
+            map.removeLayer(osmLayer);
+            satelliteLayer.addTo(map);
+            this.classList.add('active');
+            document.getElementById('osm-btn').classList.remove('active');
+        });
+
+        document.getElementById('havza-btn').addEventListener('click', function() {
+            if (map.hasLayer(havzaLayer)) {
+                map.removeLayer(havzaLayer);
+                this.classList.remove('active');
+            } else {
+                havzaLayer.addTo(map);
+                this.classList.add('active');
+            }
+        });
+
+        document.getElementById('mahalle-btn').addEventListener('click', function() {
+            if (map.hasLayer(mahalleLayer)) {
+                map.removeLayer(mahalleLayer);
+                this.classList.remove('active');
+            } else {
+                mahalleLayer.addTo(map);
+                this.classList.add('active');
+            }
+        });
+
+        document.getElementById('location-btn').addEventListener('click', function() {
+            if (map.hasLayer(locationMarker)) {
+                map.removeLayer(locationMarker);
+                map.removeLayer(locationCircle);
+                this.classList.remove('active');
+                map.stopLocate();
+            } else {
+                map.locate({watch: true, setView: false, maxZoom: 16});
+                this.classList.add('active');
+            }
+        });
+
+        // Konum bulma olaylarını dinle
+        map.on('locationfound', onLocationFound);
+        map.on('locationerror', onLocationError);
+
+        // Varsayılan olarak OSM butonunu aktif göster
+        document.getElementById('osm-btn').classList.add('active');
+    </script>
 </body>
 </html>
