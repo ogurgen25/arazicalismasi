@@ -261,6 +261,18 @@
             background: #e74c3c;
             color: white;
         }
+        .screenshot-btn {
+            position: absolute;
+            top: 180px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -277,6 +289,10 @@
     <div class="distance-tools">
         <button class="distance-btn" id="measure-distance"><i class="fas fa-ruler"></i> Mesafe Ölç</button>
         <button class="distance-btn" id="clear-measurements"><i class="fas fa-trash"></i> Temizle</button>
+    </div>
+    
+    <div class="screenshot-btn">
+        <button class="distance-btn" id="screenshot-btn"><i class="fas fa-camera"></i> Görüntü Al</button>
     </div>
     
     <div class="marker-counter">
@@ -332,7 +348,6 @@
             <div class="panel-content" id="layers-content">
                 <button id="havza-btn"><i class="fas fa-water"></i> Havza Sınırı</button>
                 <button id="mahalle-btn"><i class="fas fa-map-marked-alt"></i> Mahalle Sınırları</button>
-                <button id="contour-btn"><i class="fas fa-wave-square"></i> Eşyükselti Eğrileri</button>
             </div>
         </div>
         
@@ -345,7 +360,6 @@
                 <button id="location-btn"><i class="fas fa-location-arrow"></i> Hassas Konum Takibi</button>
                 <button id="add-marker-btn"><i class="fas fa-map-marker-alt"></i> İşaretleyici Ekle</button>
                 <button id="track-recording-btn"><i class="fas fa-record-vinyl"></i> Rota Kaydı</button>
-                <button id="screenshot-btn"><i class="fas fa-camera"></i> Ekran Görüntüsü Al</button>
             </div>
         </div>
     </div>
@@ -358,8 +372,10 @@
         let currentHeading = 0;
         
         // Ölçüm için değişkenler
-        let measureControl = null;
         let isMeasuring = false;
+        let measurePoints = [];
+        let measureLine = null;
+        let totalDistance = 0;
         
         // İşaretleyici sayacı
         let markerCount = 0;
@@ -391,9 +407,6 @@
             maxZoom: 17
         });
 
-        // Eşyükselti eğrileri katmanı
-        const contourLayer = L.layerGroup();
-        
         // Çevrimdışı durumda kullanılacak basit grid katmanı
         const gridLayer = L.layerGroup();
 
@@ -467,11 +480,13 @@
         // Pusula yönünü güncelle
         function updateCompass(heading) {
             const compassArrow = document.getElementById('compass-arrow');
-            compassArrow.style.transform = `rotate(${360 - heading}deg)`;
-            currentHeading = heading;
-            
-            // Yön bilgisini güncelle
-            document.getElementById('info-heading').textContent = `${Math.round(heading)}° (${getDirectionFromDegree(heading)})`;
+            if (compassArrow) {
+                compassArrow.style.transform = `rotate(${360 - heading}deg)`;
+                currentHeading = heading;
+                
+                // Yön bilgisini güncelle
+                document.getElementById('info-heading').textContent = `${Math.round(heading)}° (${getDirectionFromDegree(heading)})`;
+            }
         }
         
         // Dereceyi yön ismine çevir
@@ -482,7 +497,7 @@
         
         // Eğim hesapla ve göster
         function calculateSlope(newPosition, newElevation) {
-            if (!lastPosition || !lastElevation) return null;
+            if (!lastPosition || !lastElevation || !newElevation) return null;
             
             // Mesafe hesapla (Haversine formülü)
             const R = 6371000; // Dünya yarıçapı metre cinsinden
@@ -574,81 +589,97 @@
         // Mesafe ölçme aracını başlat
         function initMeasureTool() {
             if (isMeasuring) {
-                if (measureControl) {
-                    map.removeControl(measureControl);
+                // Ölçümü durdur
+                map.off('click', onMapClick);
+                if (measureLine) {
+                    map.removeLayer(measureLine);
                 }
+                // Tüm ölçüm noktalarını temizle
+                measurePoints.forEach(point => {
+                    map.removeLayer(point);
+                });
+                measurePoints = [];
                 isMeasuring = false;
                 document.getElementById('measure-distance').innerHTML = '<i class="fas fa-ruler"></i> Mesafe Ölç';
                 return;
             }
             
-            // Leaflet MeasurePath eklentisi benzeri işlev
-            let startPoint = null;
-            let measureLine = null;
-            let measurePoints = [];
-            let totalDistance = 0;
-            
-            function onMapClick(e) {
-                if (!isMeasuring) return;
-                
-                if (!startPoint) {
-                    startPoint = e.latlng;
-                    measurePoints = [startPoint];
-                    
-                    // Ölçüm çizgisi oluştur
-                    measureLine = L.polyline(measurePoints, {
-                        color: '#3498db',
-                        weight: 3,
-                        dashArray: '5, 10'
-                    }).addTo(map);
-                    
-                    // Başlangıç noktası işaretleyici
-                    L.marker(startPoint, {
-                        icon: L.divIcon({
-                            className: 'measure-marker',
-                            html: '<div style="background-color:#3498db; width:12px; height:12px; border-radius:50%;"></div>',
-                            iconSize: [12, 12]
-                        })
-                    }).addTo(map);
-                } else {
-                    // Mesafeyi hesapla ve toplama ekle
-                    const lastPoint = measurePoints[measurePoints.length - 1];
-                    const distance = map.distance(lastPoint, e.latlng);
-                    totalDistance += distance;
-                    
-                    // Noktayı ekle
-                    measurePoints.push(e.latlng);
-                    measureLine.setLatLngs(measurePoints);
-                    
-                    // Mesafe bilgisini göster
-                    L.circleMarker(e.latlng, {
-                        radius: 5,
-                        color: '#3498db',
-                        fillColor: '#ffffff',
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 1
-                    }).addTo(map).bindTooltip(`${totalDistance.toFixed(1)} m`, {
-                        permanent: false,
-                        direction: 'top'
-                    });
-                }
-            }
-            
-            map.on('click', onMapClick);
+            // Ölçümü başlat
             isMeasuring = true;
+            totalDistance = 0;
             document.getElementById('measure-distance').innerHTML = '<i class="fas fa-stop"></i> Ölçümü Durdur';
             
-            // Ölçümü durdurma işlevi
-            window.stopMeasure = function() {
-                map.off('click', onMapClick);
-                if (measureLine) {
-                    map.removeLayer(measureLine);
-                }
-                startPoint = null;
-                isMeasuring = false;
-                document.getElementById('measure-distance').innerHTML = '<i class="fas fa-ruler"></i> Mesafe Ölç';
-            };
+            // Haritaya tıklama olayını dinle
+            map.on('click', onMapClick);
+            
+            // Kullanıcıyı bilgilendir
+            alert("Mesafe ölçümü başlatıldı. Harita üzerinde tıklayarak noktaları işaretleyin. İlk tıklama başlangıç noktasını belirler.");
+        }
+        
+        // Haritaya tıklandığında
+        function onMapClick(e) {
+            if (!isMeasuring) return;
+            
+            if (measurePoints.length === 0) {
+                // İlk nokta
+                const marker = L.marker(e.latlng, {
+                    icon: L.divIcon({
+                        className: 'measure-marker',
+                        html: '<div style="background-color:#3498db; width:12px; height:12px; border-radius:50%;"></div>',
+                        iconSize: [12, 12]
+                    })
+                }).addTo(map);
+                measurePoints.push(marker);
+                
+                // Ölçüm çizgisi oluştur
+                measureLine = L.polyline([e.latlng], {
+                    color: '#3498db',
+                    weight: 3,
+                    dashArray: '5, 10'
+                }).addTo(map);
+            } else {
+                // Sonraki noktalar
+                const lastPoint = measurePoints[measurePoints.length - 1].getLatLng();
+                const distance = map.distance(lastPoint, e.latlng);
+                totalDistance += distance;
+                
+                // Yeni nokta ekle
+                const marker = L.circleMarker(e.latlng, {
+                    radius: 5,
+                    color: '#3498db',
+                    fillColor: '#ffffff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 1
+                }).addTo(map).bindTooltip(`${totalDistance.toFixed(1)} m`, {
+                    permanent: false,
+                    direction: 'top'
+                });
+                
+                measurePoints.push(marker);
+                
+                // Çizgiyi güncelle
+                const points = measurePoints.map(m => m.getLatLng());
+                measureLine.setLatLngs(points);
+                
+                // Toplam mesajeyi göster
+                alert(`Toplam mesafe: ${totalDistance.toFixed(1)} metre`);
+            }
+        }
+        
+        // Ölçümleri temizle
+        function clearMeasurements() {
+            if (measureLine) {
+                map.removeLayer(measureLine);
+                measureLine = null;
+            }
+            measurePoints.forEach(point => {
+                map.removeLayer(point);
+            });
+            measurePoints = [];
+            isMeasuring = false;
+            totalDistance = 0;
+            document.getElementById('measure-distance').innerHTML = '<i class="fas fa-ruler"></i> Mesafe Ölç';
         }
         
         // İşaretleyici ekle
@@ -750,21 +781,14 @@
             document.getElementById('track-recording-btn').classList.remove('active');
         }
         
-        // Ekran görüntüsü al
+        // Ekran görüntüsü al (basit versiyon)
         function takeScreenshot() {
-            // Harita görünümünü bir div olarak kopyala
-            const mapContainer = map.getContainer();
-            html2canvas(mapContainer).then(canvas => {
-                // Görüntüyü indir
-                const link = document.createElement('a');
-                link.download = 'arazi-calismasi-' + new Date().toISOString().replace(/:/g, '-') + '.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            });
+            alert("Ekran görüntüsü alma özelliği için tarayıcınızın yazdırma özelliğini kullanabilirsiniz. (Ctrl+P)");
         }
         
         // GeoJSON dosyalarını yükleme
         function loadGeoJSONData() {
+            // Havza verilerini yükle
             fetch('Data/havza_wgs84.geojson')
                 .then(response => {
                     if (!response.ok) throw new Error('Havza GeoJSON dosyası bulunamadı');
@@ -806,6 +830,7 @@
                     }
                 });
 
+            // Mahalle verilerini yükle
             fetch('Data/mahalle_wgs84.geojson')
                 .then(response => {
                     if (!response.ok) throw new Error('Mahalle GeoJSON dosyası bulunamadı');
@@ -823,38 +848,4 @@
                     
                     try {
                         localStorage.setItem('mahalleData', JSON.stringify(data));
-                    } catch (e) {
-                        console.warn('Mahalle verisi localStorage\'a kaydedilemedi:', e);
-                    }
-                })
-                .catch(error => {
-                    console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
-                    try {
-                        const savedData = localStorage.getItem('mahalleData');
-                        if (savedData) {
-                            const data = JSON.parse(savedData);
-                            L.geoJSON(data, {
-                                style: mahalleStyle,
-                                onEachFeature: function(feature, layer) {
-                                    if (feature.properties && feature.properties.name) {
-                                        layer.bindPopup(`Mahalle: ${feature.properties.name}`);
-                                    }
-                                }
-                            }).addTo(mahalleLayer);
-                        }
-                    } catch (e) {
-                        console.error('Çevrimdışı mahalle verisi yüklenemedi:', e);
-                    }
-                });
-        }
-
-        // Konum takibi
-        let locationMarker = null;
-        let locationCircle = null;
-        let isTracking = false;
-        let watchId = null;
-        let positionHistory = [];
-        const MAX_POSITION_HISTORY = 100;
-
-        async function onLocationFound(e) {
-            const radius = e.accuracy
+                    } catch (e)
