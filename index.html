@@ -11,23 +11,28 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
         }
         #map {
             position: absolute;
             top: 0;
             bottom: 0;
+            left: 0;
+            right: 0;
             width: 100%;
+            height: 100%;
         }
         .control-panel {
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 1000;
-            background: white;
+            background: rgba(255, 255, 255, 0.9);
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
             max-width: 300px;
+            backdrop-filter: blur(5px);
         }
         .control-group {
             margin-bottom: 15px;
@@ -52,6 +57,7 @@
             cursor: pointer;
             font-weight: bold;
             transition: background 0.3s;
+            text-align: left;
         }
         button:hover {
             background: #388E3C;
@@ -64,11 +70,23 @@
         }
         button#location-btn.active {
             background: #FF5722;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
         }
         .info {
             font-size: 12px;
             color: #666;
             margin-top: 15px;
+            font-style: italic;
+        }
+        .location-status {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
         }
     </style>
 </head>
@@ -90,6 +108,7 @@
         
         <div class="control-group">
             <button id="location-btn">Konumumu Göster</button>
+            <div class="location-status" id="location-status">Kapalı</div>
         </div>
         
         <div class="info">
@@ -98,8 +117,8 @@
     </div>
 
     <script>
-        // Harita oluşturma
-        const map = L.map('map').setView([39.9334, 32.8597], 13); // Ankara merkezli varsayılan görünüm
+        // Harita oluşturma - Erzurum civarında başlangıç
+        const map = L.map('map').setView([39.9, 41.3], 10); // Erzurum civarı
 
         // Altlık haritalar (Basemaps)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -119,49 +138,75 @@
             color: "#FF0000",
             weight: 3,
             opacity: 0.8,
-            fillOpacity: 0.1
+            fillOpacity: 0.1,
+            fillColor: "#FF0000"
         };
         
         const mahalleStyle = {
             color: "#0000FF",
             weight: 2,
             opacity: 0.7,
-            fillOpacity: 0.1
+            fillOpacity: 0.1,
+            fillColor: "#0000FF"
         };
 
         // GeoJSON dosyalarını yükleme
         fetch('Data/havza_wgs84.geojson')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Havza GeoJSON dosyası bulunamadı');
+                }
+                return response.json();
+            })
             .then(data => {
                 L.geoJSON(data, {
-                    style: havzaStyle
+                    style: havzaStyle,
+                    onEachFeature: function(feature, layer) {
+                        if (feature.properties && feature.properties.name) {
+                            layer.bindPopup(`Havza: ${feature.properties.name}`);
+                        }
+                    }
                 }).addTo(havzaLayer);
+                console.log('Havza sınırları başarıyla yüklendi');
             })
             .catch(error => {
                 console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
-                alert('Havza sınırları yüklenirken hata oluştu. Dosya yolunu kontrol edin.');
+                alert('Havza sınırları yüklenirken hata oluştu. Data/havza_wgs84.geojson dosya yolunu kontrol edin.');
             });
 
         fetch('Data/mahalle_wgs84.geojson')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Mahalle GeoJSON dosyası bulunamadı');
+                }
+                return response.json();
+            })
             .then(data => {
                 L.geoJSON(data, {
-                    style: mahalleStyle
+                    style: mahalleStyle,
+                    onEachFeature: function(feature, layer) {
+                        if (feature.properties && feature.properties.name) {
+                            layer.bindPopup(`Mahalle: ${feature.properties.name}`);
+                        }
+                    }
                 }).addTo(mahalleLayer);
+                console.log('Mahalle sınırları başarıyla yüklendi');
             })
             .catch(error => {
                 console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
-                alert('Mahalle sınırları yüklenirken hata oluştu. Dosya yolunu kontrol edin.');
+                alert('Mahalle sınırları yüklenirken hata oluştu. Data/mahalle_wgs84.geojson dosya yolunu kontrol edin.');
             });
 
         // Konum takibi
         let locationMarker = null;
         let locationCircle = null;
         let isTracking = false;
+        let watchId = null;
 
         function onLocationFound(e) {
             const radius = e.accuracy / 2;
-
+            const statusElement = document.getElementById('location-status');
+            
             if (locationMarker) {
                 map.removeLayer(locationMarker);
             }
@@ -170,9 +215,12 @@
             }
 
             locationMarker = L.marker(e.latlng).addTo(map)
-                .bindPopup("Bulunduğunuz konum").openPopup();
+                .bindPopup(`<b>Bulunduğunuz konum</b><br>Enlem: ${e.latlng.lat.toFixed(6)}<br>Boylam: ${e.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(e.accuracy)} metre`).openPopup();
 
             locationCircle = L.circle(e.latlng, radius).addTo(map);
+            
+            statusElement.innerHTML = `Aktif | Doğruluk: ${Math.round(e.accuracy)}m`;
+            statusElement.style.color = 'green';
             
             // Harita görünümünü konuma odakla (ilk seferinde)
             if (!isTracking) {
@@ -182,7 +230,52 @@
         }
 
         function onLocationError(e) {
-            alert("Konum bilgisi alınamadı: " + e.message);
+            const statusElement = document.getElementById('location-status');
+            statusElement.innerHTML = 'Hata: Konum alınamadı';
+            statusElement.style.color = 'red';
+            console.error("Konum bilgisi alınamadı: ", e.message);
+            alert("Konum bilgisi alınamadı. Lütfen tarayıcınızın konum iznini etkinleştirin.");
+        }
+
+        function startLocationTracking() {
+            const statusElement = document.getElementById('location-status');
+            
+            if (navigator.geolocation) {
+                statusElement.innerHTML = 'Konum aranıyor...';
+                statusElement.style.color = 'blue';
+                
+                // Yüksek doğrulukla konum alma
+                map.locate({
+                    watch: true,
+                    setView: false,
+                    maxZoom: 18,
+                    enableHighAccuracy: true,
+                    timeout: 30000,
+                    maximumAge: 0
+                });
+            } else {
+                statusElement.innerHTML = 'Tarayıcınız konum desteği sağlamıyor';
+                statusElement.style.color = 'red';
+                alert("Tarayıcınız konum izleme özelliğini desteklemiyor.");
+            }
+        }
+
+        function stopLocationTracking() {
+            const statusElement = document.getElementById('location-status');
+            
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+                locationMarker = null;
+            }
+            if (locationCircle) {
+                map.removeLayer(locationCircle);
+                locationCircle = null;
+            }
+            
+            map.stopLocate();
+            statusElement.innerHTML = 'Kapalı';
+            statusElement.style.color = '#666';
+            isTracking = false;
         }
 
         // Buton olayları
@@ -221,13 +314,11 @@
         });
 
         document.getElementById('location-btn').addEventListener('click', function() {
-            if (map.hasLayer(locationMarker)) {
-                map.removeLayer(locationMarker);
-                map.removeLayer(locationCircle);
+            if (this.classList.contains('active')) {
+                stopLocationTracking();
                 this.classList.remove('active');
-                map.stopLocate();
             } else {
-                map.locate({watch: true, setView: false, maxZoom: 16});
+                startLocationTracking();
                 this.classList.add('active');
             }
         });
