@@ -416,7 +416,6 @@
         // Konum bulunduğunda
         function onLocationFound(e) {
             const radius = e.accuracy / 2;
-            const statusElement = document.getElementById('info-accuracy');
             
             if (locationMarker) {
                 map.removeLayer(locationMarker);
@@ -555,6 +554,49 @@
             alert("Ekran görüntüsü alma özelliği için tarayıcınızın yazdırma özelliğini kullanabilirsiniz. (Ctrl+P)");
         }
         
+        // GeoJSON dosyalarını yükleme - DÜZELTİLMİŞ İSİMLER
+        function loadGeoJSONData() {
+            // Havza verilerini yükle - wgp84 olarak düzeltildi
+            fetch('Data/havza_wgp84.geojson')
+                .then(response => {
+                    if (!response.ok) throw new Error('Havza GeoJSON dosyası bulunamadı');
+                    return response.json();
+                })
+                .then(data => {
+                    L.geoJSON(data, {
+                        style: {color: "#FF0000", weight: 3, opacity: 0.8, fillOpacity: 0.1},
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties && feature.properties.name) {
+                                layer.bindPopup(`Havza: ${feature.properties.name}`);
+                            }
+                        }
+                    }).addTo(havzaLayer);
+                })
+                .catch(error => {
+                    console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
+                });
+
+            // Mahalle verilerini yükle - wgp84 olarak düzeltildi
+            fetch('Data/mahalle_wgp84.geojson')
+                .then(response => {
+                    if (!response.ok) throw new Error('Mahalle GeoJSON dosyası bulunamadı');
+                    return response.json();
+                })
+                .then(data => {
+                    L.geoJSON(data, {
+                        style: {color: "#0000FF", weight: 2, opacity: 0.7, fillOpacity: 0.1},
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties && feature.properties.name) {
+                                layer.bindPopup(`Mahalle: ${feature.properties.name}`);
+                            }
+                        }
+                    }).addTo(mahalleLayer);
+                })
+                .catch(error => {
+                    console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
+                });
+        }
+        
         // Açılır-kapanır menü işlevselliği
         document.getElementById('basemap-header').addEventListener('click', function() {
             const content = document.getElementById('basemap-content');
@@ -654,6 +696,9 @@
         
         // Pusulayı başlangıçta Kuzey'i gösterecek şekilde ayarla
         updateCompass(0);
+        
+        // Sayfa yüklendiğinde GeoJSON verilerini yükle
+        loadGeoJSONData();
     </script>
 </body>
 </html>
