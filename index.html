@@ -8,20 +8,12 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            box-sizing: border-box;
+        body {
             margin: 0;
             padding: 0;
-        }
-        
-        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 100vh;
-            width: 100vw;
             overflow: hidden;
-            background-color: #f0f2f5;
         }
-        
         #map {
             position: absolute;
             top: 0;
@@ -30,253 +22,119 @@
             right: 0;
             width: 100%;
             height: 100%;
-            z-index: 1;
         }
-        
         .control-panel {
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.97);
-            padding: 12px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            width: 280px;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            max-width: 250px;
+            backdrop-filter: blur(5px);
         }
-        
         .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            padding: 10px 6px;
-            border-bottom: 1px solid #eaeaea;
+            padding: 8px 5px;
+            border-bottom: 1px solid #eee;
         }
-        
         .panel-header h3 {
             margin: 0;
             font-size: 16px;
-            color: #2c3e50;
-            font-weight: 600;
+            color: #333;
         }
-        
         .panel-content {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
-        
         .panel-content.open {
             max-height: 500px;
         }
-        
         .control-group {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
-        
         button {
-            display: flex;
-            align-items: center;
+            display: block;
             width: 100%;
             padding: 10px;
             margin-bottom: 8px;
-            background: #3498db;
+            background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
+            font-weight: bold;
+            transition: background 0.3s;
             text-align: left;
         }
-        
         button:hover {
-            background: #2980b9;
+            background: #388E3C;
         }
-        
         button.active {
-            background: #e74c3c;
+            background: #FF9800;
         }
-        
-        button i {
-            margin-right: 8px;
-            width: 18px;
-            text-align: center;
-        }
-        
         button#location-btn {
-            background: #2ecc71;
+            background: #2196F3;
         }
-        
         button#location-btn.active {
-            background: #27ae60;
+            background: #FF5722;
             animation: pulse 1.5s infinite;
         }
-        
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
         }
-        
-        .info-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            width: 280px;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+        .info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 15px;
+            font-style: italic;
         }
-        
-        .info-item {
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
+        .location-status {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
         }
-        
-        .info-label {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 14px;
-        }
-        
-        .info-value {
-            color: #3498db;
-            font-weight: 500;
-            font-size: 14px;
-        }
-        
-        .elevation-value {
-            color: #e74c3c;
-        }
-        
-        .accuracy-value {
-            color: #f39c12;
-        }
-        
-        .heading-value {
-            color: #9b59b6;
-        }
-        
         .toggle-icon {
             transition: transform 0.3s;
-            color: #7f8c8d;
         }
-        
         .toggle-icon.open {
             transform: rotate(180deg);
         }
-        
+        .accuracy-info {
+            margin-top: 3px;
+            font-size: 11px;
+            color: #888;
+        }
         .offline-warning {
             display: none;
             position: absolute;
             bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 10px;
             z-index: 1000;
-            background: #e67e22;
+            background: #FF9800;
             color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-size: 13px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-        
-        .compass {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            width: 70px;
-            height: 70px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .compass-arrow {
-            width: 25px;
-            height: 25px;
-            background: #e74c3c;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-            transform-origin: center;
-            transition: transform 0.1s ease;
-        }
-        
-        .compass-label {
-            position: absolute;
-            top: 5px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 10px;
-            font-weight: bold;
-            color: #e74c3c;
-        }
-        
-        .distance-tools {
-            position: absolute;
-            top: 100px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .distance-btn {
             padding: 8px 12px;
-            margin: 5px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
+            border-radius: 4px;
+            font-size: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
         }
-        
-        .marker-counter {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #2c3e50;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+        .elevation-info {
+            margin-top: 3px;
+            font-size: 11px;
+            color: #2E7D32;
+            font-weight: bold;
         }
-        
-        .screenshot-btn {
-            position: absolute;
-            top: 170px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+        .elevation-loading {
+            color: #757575;
+            font-style: italic;
         }
     </style>
 </head>
@@ -286,88 +144,47 @@
         <i class="fas fa-exclamation-triangle"></i> İnternet bağlantısı kesildi. Konum takibi devam ediyor.
     </div>
     
-    <div class="compass">
-        <div class="compass-label">K</div>
-        <div class="compass-arrow" id="compass-arrow"></div>
-    </div>
-    
-    <div class="distance-tools">
-        <button class="distance-btn" id="measure-distance"><i class="fas fa-ruler"></i> Mesafe Ölç</button>
-        <button class="distance-btn" id="clear-measurements"><i class="fas fa-trash"></i> Temizle</button>
-    </div>
-    
-    <div class="screenshot-btn">
-        <button class="distance-btn" id="screenshot-btn"><i class="fas fa-camera"></i> Görüntü Al</button>
-    </div>
-    
-    <div class="marker-counter">
-        <i class="fas fa-map-marker-alt"></i> İşaretleyiciler: <span id="marker-count">0</span>
-    </div>
-    
-    <div class="info-panel">
-        <h3 style="margin-top: 0; margin-bottom: 10px; color: #2c3e50; font-size: 16px;">Konum Bilgileri</h3>
-        <div class="info-item">
-            <span class="info-label">Enlem:</span>
-            <span class="info-value" id="info-lat">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Boylam:</span>
-            <span class="info-value" id="info-lng">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Rakım:</span>
-            <span class="info-value elevation-value" id="info-elevation">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Hassasiyet:</span>
-            <span class="info-value accuracy-value" id="info-accuracy">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Yön:</span>
-            <span class="info-value heading-value" id="info-heading">-</span>
-        </div>
-    </div>
-    
     <div class="control-panel">
         <div class="control-group">
             <div class="panel-header" id="basemap-header">
-                <h3><i class="fas fa-map"></i> Altlık Haritalar</h3>
+                <h3>Altlık Haritalar</h3>
                 <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
             </div>
             <div class="panel-content" id="basemap-content">
-                <button id="osm-btn"><i class="fas fa-road"></i> OpenStreetMap</button>
-                <button id="satellite-btn"><i class="fas fa-satellite"></i> Uydu Görünümü</button>
-                <button id="terrain-btn"><i class="fas fa-mountain"></i> Topoğrafya</button>
+                <button id="osm-btn">OpenStreetMap (Varsayılan)</button>
+                <button id="satellite-btn">Uydu Görünümü</button>
             </div>
         </div>
         
         <div class="control-group">
             <div class="panel-header" id="layers-header">
-                <h3><i class="fas fa-layer-group"></i> Katmanlar</h3>
+                <h3>Katmanlar</h3>
                 <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
             </div>
             <div class="panel-content" id="layers-content">
-                <button id="havza-btn"><i class="fas fa-water"></i> Havza Sınırı</button>
-                <button id="mahalle-btn"><i class="fas fa-map-marked-alt"></i> Mahalle Sınırları</button>
+                <button id="havza-btn">Havza Sınırını Göster/Gizle</button>
+                <button id="mahalle-btn">Mahalle Sınırlarını Göster/Gizle</button>
             </div>
         </div>
         
         <div class="control-group">
-            <div class="panel-header" id="tools-header">
-                <h3><i class="fas fa-tools"></i> Araçlar</h3>
-                <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
-            </div>
-            <div class="panel-content" id="tools-content">
-                <button id="location-btn"><i class="fas fa-location-arrow"></i> Konum Takibi</button>
-                <button id="add-marker-btn"><i class="fas fa-map-marker-alt"></i> İşaretleyici Ekle</button>
-            </div>
+            <button id="location-btn">
+                <i class="fas fa-location-arrow"></i> Hassas Konum Takibi
+            </button>
+            <div class="location-status" id="location-status">Kapalı</div>
+            <div class="accuracy-info" id="accuracy-info"></div>
+            <div class="elevation-info" id="elevation-info"></div>
+        </div>
+        
+        <div class="info">
+            <p>Havza ve mahalle sınırları için GeoJSON dosyalarının yüklenmesi biraz zaman alabilir.</p>
         </div>
     </div>
 
     <script>
         // Harita oluşturma - Erzurum civarında başlangıç
-        const map = L.map('map').setView([39.9, 41.3], 12);
-        
+        const map = L.map('map').setView([39.9, 41.3], 10); // Erzurum civarı
+
         // Altlık haritalar (Basemaps)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -378,117 +195,99 @@
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
             maxZoom: 19
         });
-        
-        const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: © <a href="https://opentopomap.org">OpenTopoMap</a>',
-            maxZoom: 17
-        });
+
+        // Çevrimdışı durumda kullanılacak basit grid katmanı
+        const gridLayer = L.layerGroup();
 
         // Katman grupları
         const havzaLayer = L.layerGroup();
         const mahalleLayer = L.layerGroup();
-        const markerLayer = L.layerGroup().addTo(map);
         
-        // Konum takibi için değişkenler
-        let locationMarker = null;
-        let locationCircle = null;
-        let isTracking = false;
+        // GeoJSON stillendirme
+        const havzaStyle = {
+            color: "#FF0000",
+            weight: 3,
+            opacity: 0.8,
+            fillOpacity: 0.1,
+            fillColor: "#FF0000"
+        };
         
-        // İşaretleyici sayacı
-        let markerCount = 0;
-        const markers = [];
+        const mahalleStyle = {
+            color: "#0000FF",
+            weight: 2,
+            opacity: 0.7,
+            fillOpacity: 0.1,
+            fillColor: "#0000FF"
+        };
+
+        // Çevrimdışı izleme
+        let isOnline = navigator.onLine;
+        const offlineWarning = document.getElementById('offline-warning');
         
-        // Pusula için değişken
-        let currentHeading = 0;
-
-        // Pusula yönünü güncelle
-        function updateCompass(heading) {
-            const compassArrow = document.getElementById('compass-arrow');
-            if (compassArrow) {
-                compassArrow.style.transform = `rotate(${360 - heading}deg)`;
-                currentHeading = heading;
-                
-                // Yön bilgisini güncelle
-                document.getElementById('info-heading').textContent = `${Math.round(heading)}°`;
-            }
-        }
-        
-        // Konum bulunduğunda
-        function onLocationFound(e) {
-            const radius = e.accuracy / 2;
-            
-            if (locationMarker) {
-                map.removeLayer(locationMarker);
-            }
-            if (locationCircle) {
-                map.removeLayer(locationCircle);
-            }
-
-            locationMarker = L.marker(e.latlng).addTo(map)
-                .bindPopup(`<b>Bulunduğunuz konum</b><br>Enlem: ${e.latlng.lat.toFixed(6)}<br>Boylam: ${e.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(e.accuracy)} metre`).openPopup();
-
-            locationCircle = L.circle(e.latlng, radius).addTo(map);
-            
-            // Konum bilgilerini güncelle
-            document.getElementById('info-lat').textContent = e.latlng.lat.toFixed(6);
-            document.getElementById('info-lng').textContent = e.latlng.lng.toFixed(6);
-            document.getElementById('info-accuracy').textContent = `${Math.round(e.accuracy)} metre`;
-            
-            // Pusulayı güncelle (yön bilgisi varsa)
-            if (e.heading) {
-                updateCompass(e.heading);
-            }
-            
-            // Rakım bilgisini al
-            getElevation(e.latlng.lat, e.latlng.lng);
-            
-            // Harita görünümünü konuma odakla (ilk seferinde)
-            if (!isTracking) {
-                map.setView(e.latlng, 16);
-                isTracking = true;
-            }
-        }
-
-        // Konum hatası
-        function onLocationError(e) {
-            alert("Konum bilgisi alınamadı. Lütfen tarayıcınızın konum iznini etkinleştirin.");
-        }
-
-        // Konum takibini başlat/durdur
-        function toggleLocationTracking() {
-            if (isTracking) {
-                // Konum takibini durdur
-                map.stopLocate();
-                if (locationMarker) {
-                    map.removeLayer(locationMarker);
-                    locationMarker = null;
-                }
-                if (locationCircle) {
-                    map.removeLayer(locationCircle);
-                    locationCircle = null;
-                }
-                isTracking = false;
-                document.getElementById('location-btn').classList.remove('active');
+        function updateOnlineStatus() {
+            isOnline = navigator.onLine;
+            if (!isOnline) {
+                offlineWarning.style.display = 'block';
+                // Çevrimdışı grid ekle
+                addOfflineGrid();
             } else {
-                // Konum takibini başlat
-                map.locate({
-                    watch: true,
-                    setView: false,
-                    maxZoom: 16,
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                });
-                isTracking = true;
-                document.getElementById('location-btn').classList.add('active');
+                offlineWarning.style.display = 'none';
+                // Çevrimiçiyse grid'i kaldır ve normal katmanları geri yükle
+                map.removeLayer(gridLayer);
+                if (map.hasLayer(osmLayer) || map.hasLayer(satelliteLayer)) {
+                    // Zaten bir katman yüklü, bir şey yapma
+                } else {
+                    // Hiçbir katman yüklü değilse, OSM'yi yükle
+                    osmLayer.addTo(map);
+                }
             }
         }
+        
+        function addOfflineGrid() {
+            // Mevcut katmanları kaldır
+            map.removeLayer(osmLayer);
+            map.removeLayer(satelliteLayer);
+            
+            // Grid katmanını temizle ve ekle
+            gridLayer.clearLayers();
+            
+            // Basit bir grid oluştur
+            const bounds = map.getBounds();
+            const zoom = map.getZoom();
+            const latLngStep = 0.01; // Grid adımı
+            
+            for (let lat = bounds.getSouth(); lat < bounds.getNorth(); lat += latLngStep) {
+                for (let lng = bounds.getWest(); lng < bounds.getEast(); lng += latLngStep) {
+                    // Grid çizgileri ekle
+                    if (zoom > 12) { // Yalnızca yüksek zoom seviyelerinde grid göster
+                        L.rectangle([[lat, lng], [lat + latLngStep, lng + latLngStep]], {
+                            color: '#ccc',
+                            weight: 0.5,
+                            fill: false
+                        }).addTo(gridLayer);
+                    }
+                }
+            }
+            
+            gridLayer.addTo(map);
+        }
+
+        // Çevrimdışı durumu dinle
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
         
         // Rakım/yükseklik bilgisi alma fonksiyonu
         async function getElevation(lat, lng) {
-            const elevationInfo = document.getElementById('info-elevation');
+            const elevationInfo = document.getElementById('elevation-info');
+            
+            // Çevrimdışıysa rakım bilgisi alamayız
+            if (!isOnline) {
+                elevationInfo.innerHTML = 'Rakım: İnternet bağlantısı gerekli';
+                return null;
+            }
             
             try {
-                elevationInfo.textContent = 'Hesaplanıyor...';
+                elevationInfo.innerHTML = '<span class="elevation-loading">Rakım hesaplanıyor...</span>';
                 
                 // Open-Elevation API'sini kullan
                 const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`);
@@ -501,102 +300,329 @@
                 
                 if (data.results && data.results.length > 0) {
                     const elevation = data.results[0].elevation;
-                    elevationInfo.textContent = `${elevation.toFixed(1)} metre`;
+                    elevationInfo.innerHTML = `Rakım: ${elevation.toFixed(1)} metre`;
                     return elevation;
                 } else {
                     throw new Error('Rakım verisi bulunamadı');
                 }
             } catch (error) {
                 console.error('Rakım bilgisi alınırken hata oluştu:', error);
-                elevationInfo.textContent = 'Hata';
+                elevationInfo.innerHTML = 'Rakım: Hata';
                 return null;
             }
         }
         
-        // İşaretleyici ekle
-        function addMarker() {
-            const center = map.getCenter();
-            const marker = L.marker(center, {
-                title: `İşaretleyici ${markerCount + 1}`
-            }).addTo(markerLayer);
-            
-            marker.bindPopup(`
-                <div style="text-align:center;">
-                    <b>İşaretleyici ${markerCount + 1}</b><br>
-                    Enlem: ${center.lat.toFixed(6)}<br>
-                    Boylam: ${center.lng.toFixed(6)}<br>
-                    <button onclick="removeMarker(${markerCount})" style="margin-top:5px; padding:3px 8px; background:#e74c3c; color:white; border:none; border-radius:3px; cursor:pointer;">Kaldır</button>
-                </div>
-            `).openPopup();
-            
-            markers.push(marker);
-            markerCount++;
-            document.getElementById('marker-count').textContent = markerCount;
-        }
-        
-        // İşaretleyici kaldır
-        function removeMarker(index) {
-            if (markers[index]) {
-                map.removeLayer(markers[index]);
-                markers.splice(index, 1);
-                markerCount--;
-                document.getElementById('marker-count').textContent = markerCount;
-            }
-        }
-        
-        // Mesafe ölçme aracını başlat
-        function initMeasureTool() {
-            alert("Mesafe ölçme aracı aktif. Haritaya tıklayarak noktaları işaretleyin.");
-        }
-        
-        // Ekran görüntüsü al
-        function takeScreenshot() {
-            alert("Ekran görüntüsü alma özelliği için tarayıcınızın yazdırma özelliğini kullanabilirsiniz. (Ctrl+P)");
-        }
-        
-        // GeoJSON dosyalarını yükleme - DÜZELTİLMİŞ İSİMLER
+        // GeoJSON dosyalarını yükleme
         function loadGeoJSONData() {
-            // Havza verilerini yükle - wgp84 olarak düzeltildi
-            fetch('Data/havza_wgp84.geojson')
+            fetch('Data/havza_wgs84.geojson')
                 .then(response => {
-                    if (!response.ok) throw new Error('Havza GeoJSON dosyası bulunamadı');
+                    if (!response.ok) {
+                        throw new Error('Havza GeoJSON dosyası bulunamadı');
+                    }
                     return response.json();
                 })
                 .then(data => {
                     L.geoJSON(data, {
-                        style: {color: "#FF0000", weight: 3, opacity: 0.8, fillOpacity: 0.1},
+                        style: havzaStyle,
                         onEachFeature: function(feature, layer) {
                             if (feature.properties && feature.properties.name) {
                                 layer.bindPopup(`Havza: ${feature.properties.name}`);
                             }
                         }
                     }).addTo(havzaLayer);
+                    console.log('Havza sınırları başarıyla yüklendi');
+                    
+                    // Veriyi localStorage'a kaydet (çevrimdışı kullanım için)
+                    try {
+                        localStorage.setItem('havzaData', JSON.stringify(data));
+                    } catch (e) {
+                        console.warn('Havza verisi localStorage\'a kaydedilemedi:', e);
+                    }
                 })
                 .catch(error => {
                     console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
+                    // Çevrimdışı durumda localStorage'dan yükle
+                    try {
+                        const savedData = localStorage.getItem('havzaData');
+                        if (savedData) {
+                            const data = JSON.parse(savedData);
+                            L.geoJSON(data, {
+                                style: havzaStyle,
+                                onEachFeature: function(feature, layer) {
+                                    if (feature.properties && feature.properties.name) {
+                                        layer.bindPopup(`Havza: ${feature.properties.name}`);
+                                    }
+                                }
+                            }).addTo(havzaLayer);
+                            console.log('Havza sınırları çevrimdışı önbellekten yüklendi');
+                        }
+                    } catch (e) {
+                        console.error('Çevrimdışı havza verisi yüklenemedi:', e);
+                    }
                 });
 
-            // Mahalle verilerini yükle - wgp84 olarak düzeltildi
-            fetch('Data/mahalle_wgp84.geojson')
+            fetch('Data/mahalle_wgs84.geojson')
                 .then(response => {
-                    if (!response.ok) throw new Error('Mahalle GeoJSON dosyası bulunamadı');
+                    if (!response.ok) {
+                        throw new Error('Mahalle GeoJSON dosyası bulunamadı');
+                    }
                     return response.json();
                 })
                 .then(data => {
                     L.geoJSON(data, {
-                        style: {color: "#0000FF", weight: 2, opacity: 0.7, fillOpacity: 0.1},
+                        style: mahalleStyle,
                         onEachFeature: function(feature, layer) {
                             if (feature.properties && feature.properties.name) {
                                 layer.bindPopup(`Mahalle: ${feature.properties.name}`);
                             }
                         }
                     }).addTo(mahalleLayer);
+                    console.log('Mahalle sınırları başarıyla yüklendi');
+                    
+                    // Veriyi localStorage'a kaydet (çevrimdışı kullanım için)
+                    try {
+                        localStorage.setItem('mahalleData', JSON.stringify(data));
+                    } catch (e) {
+                        console.warn('Mahalle verisi localStorage\'a kaydedilemedi:', e);
+                    }
                 })
                 .catch(error => {
                     console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
+                    // Çevrimdışı durumda localStorage'dan yükle
+                    try {
+                        const savedData = localStorage.getItem('mahalleData');
+                        if (savedData) {
+                            const data = JSON.parse(savedData);
+                            L.geoJSON(data, {
+                                style: mahalleStyle,
+                                onEachFeature: function(feature, layer) {
+                                    if (feature.properties && feature.properties.name) {
+                                        layer.bindPopup(`Mahalle: ${feature.properties.name}`);
+                                    }
+                                }
+                            }).addTo(mahalleLayer);
+                            console.log('Mahalle sınırları çevrimdışı önbellekten yüklendi');
+                        }
+                    } catch (e) {
+                        console.error('Çevrimdışı mahalle verisi yüklenemedi:', e);
+                    }
                 });
         }
+
+        // Konum takibi
+        let locationMarker = null;
+        let locationCircle = null;
+        let isTracking = false;
+        let watchId = null;
+        let positionHistory = [];
+        const MAX_POSITION_HISTORY = 100;
+
+        async function onLocationFound(e) {
+            const radius = e.accuracy / 2;
+            const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
+            
+            // Konum geçmişini kaydet
+            positionHistory.push({
+                latlng: e.latlng,
+                accuracy: e.accuracy,
+                timestamp: new Date()
+            });
+            
+            // Eski konumları temizle
+            if (positionHistory.length > MAX_POSITION_HISTORY) {
+                positionHistory.shift();
+            }
+            
+            // Hassas konum için filtreleme uygula (ortalama al)
+            const filteredPosition = filterPosition(positionHistory);
+            
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+            }
+            if (locationCircle) {
+                map.removeLayer(locationCircle);
+            }
+
+            // Rakım bilgisini al
+            const elevation = await getElevation(
+                filteredPosition.latlng.lat, 
+                filteredPosition.latlng.lng
+            );
+
+            // Popup içeriğini oluştur (rakım bilgisiyle birlikte)
+            let popupContent = `<b>Bulunduğunuz konum</b><br>Enlem: ${filteredPosition.latlng.lat.toFixed(6)}<br>Boylam: ${filteredPosition.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(filteredPosition.accuracy)} metre`;
+            
+            if (elevation !== null) {
+                popupContent += `<br>Rakım: ${elevation.toFixed(1)} metre`;
+            }
+
+            locationMarker = L.marker(filteredPosition.latlng).addTo(map)
+                .bindPopup(popupContent).openPopup();
+
+            locationCircle = L.circle(filteredPosition.latlng, filteredPosition.accuracy / 2).addTo(map);
+            
+            statusElement.innerHTML = `Aktif | Doğruluk: ${Math.round(filteredPosition.accuracy)}m`;
+            statusElement.style.color = 'green';
+            
+            accuracyElement.innerHTML = `Hassasiyet: ${getAccuracyLevel(filteredPosition.accuracy)}`;
+            
+            // Harita görünümünü konuma odakla (ilk seferinde)
+            if (!isTracking) {
+                map.setView(filteredPosition.latlng, 18); // Daha yüksek zoom
+                isTracking = true;
+            }
+        }
         
+        // Konum filtreleme (ortalama alma)
+        function filterPosition(history) {
+            if (history.length === 0) return null;
+            if (history.length === 1) return history[0];
+            
+            // Son 5 konumun ortalamasını al
+            const recentPositions = history.slice(-5);
+            let totalLat = 0;
+            let totalLng = 0;
+            let totalAccuracy = 0;
+            
+            recentPositions.forEach(pos => {
+                totalLat += pos.latlng.lat;
+                totalLng += pos.latlng.lng;
+                totalAccuracy += pos.accuracy;
+            });
+            
+            const avgLat = totalLat / recentPositions.length;
+            const avgLng = totalLng / recentPositions.length;
+            const avgAccuracy = totalAccuracy / recentPositions.length;
+            
+            return {
+                latlng: L.latLng(avgLat, avgLng),
+                accuracy: avgAccuracy
+            };
+        }
+        
+        // Hassasiyet seviyesini metin olarak döndür
+        function getAccuracyLevel(accuracy) {
+            if (accuracy < 10) return "Çok Yüksek";
+            if (accuracy < 30) return "Yüksek";
+            if (accuracy < 50) return "Orta";
+            if (accuracy < 100) return "Düşük";
+            return "Çok Düşük";
+        }
+
+        function onLocationError(e) {
+            const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
+            const elevationInfo = document.getElementById('elevation-info');
+            
+            statusElement.innerHTML = 'Hata: Konum alınamadı';
+            statusElement.style.color = 'red';
+            accuracyElement.innerHTML = '';
+            elevationInfo.innerHTML = '';
+            
+            console.error("Konum bilgisi alınamadı: ", e.message);
+            alert("Konum bilgisi alınamadı. Lütfen tarayıcınızın konum iznini etkinleştirin.");
+        }
+
+        function startLocationTracking() {
+            const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
+            const elevationInfo = document.getElementById('elevation-info');
+            
+            if (navigator.geolocation) {
+                statusElement.innerHTML = 'Yüksek hassasiyetli konum aranıyor...';
+                statusElement.style.color = 'blue';
+                accuracyElement.innerHTML = 'GPS kalibrasyonu yapılıyor...';
+                elevationInfo.innerHTML = '';
+                
+                // Maksimum hassasiyet için ayarlar
+                const options = {
+                    enableHighAccuracy: true,  // Yüksek hassasiyet modu
+                    timeout: 10000,           // Maksimum 10 saniye bekle
+                    maximumAge: 0             // Önbelleğe alınmış konumları kabul etme
+                };
+                
+                // Konum izlemeyi başlat
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        // Leaflet formatına dönüştür
+                        const latlng = L.latLng(
+                            position.coords.latitude,
+                            position.coords.longitude
+                        );
+                        
+                        // Leaflet locationfound event'ini tetikle
+                        map.fire('locationfound', {
+                            latlng: latlng,
+                            accuracy: position.coords.accuracy,
+                            altitude: position.coords.altitude,
+                            altitudeAccuracy: position.coords.altitudeAccuracy,
+                            heading: position.coords.heading,
+                            speed: position.coords.speed
+                        });
+                    },
+                    (error) => {
+                        onLocationError({ message: getGeoErrorText(error.code) });
+                    },
+                    options
+                );
+                
+                // Harita konum izleme olaylarını da dinle (çift kontrol)
+                map.locate({
+                    watch: true,
+                    setView: false,
+                    maxZoom: 19,
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            } else {
+                statusElement.innerHTML = 'Tarayıcınız konum desteği sağlamıyor';
+                statusElement.style.color = 'red';
+                accuracyElement.innerHTML = '';
+                elevationInfo.innerHTML = '';
+                alert("Tarayıcınız konum izleme özelliğini desteklemiyor.");
+            }
+        }
+        
+        // Geolocation API hata kodlarını metne çevir
+        function getGeoErrorText(code) {
+            switch(code) {
+                case 1: return 'Konum erişim izni reddedildi';
+                case 2: return 'Konum bilgisi alınamadı';
+                case 3: return 'Konum alma işlemi zaman aşımına uğradı';
+                default: return 'Bilinmeyen hata';
+            }
+        }
+
+        function stopLocationTracking() {
+            const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
+            const elevationInfo = document.getElementById('elevation-info');
+            
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+                locationMarker = null;
+            }
+            if (locationCircle) {
+                map.removeLayer(locationCircle);
+                locationCircle = null;
+            }
+            
+            // Her iki izleme yöntemini de durdur
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            map.stopLocate();
+            
+            statusElement.innerHTML = 'Kapalı';
+            statusElement.style.color = '#666';
+            accuracyElement.innerHTML = '';
+            elevationInfo.innerHTML = '';
+            isTracking = false;
+        }
+
         // Açılır-kapanır menü işlevselliği
         document.getElementById('basemap-header').addEventListener('click', function() {
             const content = document.getElementById('basemap-content');
@@ -614,40 +640,21 @@
             icon.classList.toggle('open');
         });
 
-        document.getElementById('tools-header').addEventListener('click', function() {
-            const content = document.getElementById('tools-content');
-            const icon = this.querySelector('.toggle-icon');
-            
-            content.classList.toggle('open');
-            icon.classList.toggle('open');
-        });
-
         // Buton olayları
         document.getElementById('osm-btn').addEventListener('click', function() {
             map.removeLayer(satelliteLayer);
-            map.removeLayer(terrainLayer);
+            map.removeLayer(gridLayer);
             osmLayer.addTo(map);
             this.classList.add('active');
             document.getElementById('satellite-btn').classList.remove('active');
-            document.getElementById('terrain-btn').classList.remove('active');
         });
 
         document.getElementById('satellite-btn').addEventListener('click', function() {
             map.removeLayer(osmLayer);
-            map.removeLayer(terrainLayer);
+            map.removeLayer(gridLayer);
             satelliteLayer.addTo(map);
             this.classList.add('active');
             document.getElementById('osm-btn').classList.remove('active');
-            document.getElementById('terrain-btn').classList.remove('active');
-        });
-
-        document.getElementById('terrain-btn').addEventListener('click', function() {
-            map.removeLayer(osmLayer);
-            map.removeLayer(satelliteLayer);
-            terrainLayer.addTo(map);
-            this.classList.add('active');
-            document.getElementById('osm-btn').classList.remove('active');
-            document.getElementById('satellite-btn').classList.remove('active');
         });
 
         document.getElementById('havza-btn').addEventListener('click', function() {
@@ -670,20 +677,26 @@
             }
         });
 
-        document.getElementById('location-btn').addEventListener('click', toggleLocationTracking);
-        document.getElementById('add-marker-btn').addEventListener('click', addMarker);
-        document.getElementById('measure-distance').addEventListener('click', initMeasureTool);
-        document.getElementById('screenshot-btn').addEventListener('click', takeScreenshot);
-        document.getElementById('clear-measurements').addEventListener('click', function() {
-            markerLayer.clearLayers();
-            markerCount = 0;
-            markers.length = 0;
-            document.getElementById('marker-count').textContent = '0';
+        document.getElementById('location-btn').addEventListener('click', function() {
+            if (this.classList.contains('active')) {
+                stopLocationTracking();
+                this.classList.remove('active');
+            } else {
+                startLocationTracking();
+                this.classList.add('active');
+            }
         });
 
         // Konum bulma olaylarını dinle
         map.on('locationfound', onLocationFound);
         map.on('locationerror', onLocationError);
+        
+        // Yakınlaştırma ve kaydırma sırasında grid'i güncelle (çevrimdışı mod için)
+        map.on('moveend', function() {
+            if (!isOnline) {
+                addOfflineGrid();
+            }
+        });
 
         // Varsayılan olarak OSM butonunu aktif göster
         document.getElementById('osm-btn').classList.add('active');
@@ -691,14 +704,13 @@
         // Sayfa yüklendiğinde katman menülerini açık bırak
         document.getElementById('basemap-content').classList.add('open');
         document.getElementById('layers-content').classList.add('open');
-        document.getElementById('tools-content').classList.add('open');
         document.querySelectorAll('.toggle-icon').forEach(icon => icon.classList.add('open'));
-        
-        // Pusulayı başlangıçta Kuzey'i gösterecek şekilde ayarla
-        updateCompass(0);
         
         // Sayfa yüklendiğinde GeoJSON verilerini yükle
         loadGeoJSONData();
+        
+        // Çevrimdışı durumu kontrol et
+        updateOnlineStatus();
     </script>
 </body>
 </html>
