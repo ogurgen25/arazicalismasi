@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harita Projesi – JPEG + Maske + GPS + Mahalle (WGS84, GitHub Pages Uyumlu)</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.26/"></script>
+  <style>
+    :root{--sidebar-w:340px}
+    html, body { height: 100%; width: 100%; margin: 0; }
+    #app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100%; }
+    #sidebar { background: #0f172a; color: #f8fafc; padding: 16px 14px; overflow-y: auto; box-shadow: 2px 0 12px rgba(0,0,0,.2); }
+    #sidebar h1 { font-size: 18px; margin: 0 0 12px; letter-spacing:.3px }
+    .group { margin: 14px 0; padding: 12px; background: #111827; border-radius: 14px; border:1px solid #1f2937 }
+    .group h2 { font-size: 14px; margin: 0 0 10px; color:#cbd5e1 }
+    .layer-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px dashed #334155 }
+    .layer-item:first-child{border-top:0}
+    .hint { font-size: 12px; color:#94a3b8; line-height:1.4 }
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; cursor:pointer }
+    .btn:active{transform:translateY(1px)}
+    .switch { position: relative; width: 46px; height: 26px; }
+    .switch input { display: none; }
+    .slider { position: absolute; cursor: pointer; inset:0; background: #475569; border-radius: 999px; transition: .2s; }
+    .slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background: #16a34a; }
+    input:checked + .slider:before { transform: translateX(20px); }
+    #viewDiv { position: relative; }
+    .toast { position:absolute; left:calc(var(--sidebar-w) + 16px); top:16px; background:#111827; color:#e5e7eb; padding:8px 12px; border-radius:10px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,.2); font-size:12px; z-index: 1000; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- SOL MENÜ -->
+  <aside id="sidebar">
+    <h1>🗺️ Harita Katmanları</h1>
+
+    <div class="group">
+      <h2>JPEG Haritalar (Aç/Kapat)</h2>
+      <div class="layer-item"><span>Harita 1</span>
+        <label class="switch"><input type="checkbox" id="lyr-map1" checked><span class="slider"></span></label>
+      </div>
+      <div class="layer-item"><span>Harita 2</span>
+        <label class="switch"><input type="checkbox" id="lyr-map2"><span class="slider"></span></label>
+      </div>
+      <div class="layer-item"><span>Harita 3</span>
+        <label class="switch"><input type="checkbox" id="lyr-map3"><span class="slider"></span></label>
+      </div>
+      <p class="hint">Not: JPEG'lerin coğrafi kapsam (xmin, ymin, xmax, ymax; WGS84) bilgilerini <strong>JS içinde</strong> doldurun.</p>
+    </div>
+
+    <div class="group">
+      <h2>Vektör Katmanları</h2>
+      <div class="layer-item"><span>Mahalleler (AD etiketleri)</span>
+        <label class="switch"><input type="checkbox" id="lyr-mahalle" checked><span class="slider"></span></label>
+      </div>
+      <div class="layer-item"><span>Havza</span>
+        <label class="switch"><input type="checkbox" id="lyr-havza" checked><span class="slider"></span></label>
+      </div>
+      <p class="hint">Dosya yolları: <code>Data/mahalle_wgs84.geojson</code>, <code>Data/havza_wgs84.geojson</code> (WGS84 / EPSG:4326).</p>
+    </div>
+
+    <div class="group">
+      <h2>Canlı Konum</h2>
+      <div class="layer-item"><span>Konumu izle</span>
+        <label class="switch"><input type="checkbox" id="watch-pos"><span class="slider"></span></label>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <button class="btn" id="btn-center">Merkez / Yakınlaştır</button>
+        <button class="btn" id="btn-clear">İzi Temizle</button>
+      </div>
+      <p class="hint">GPS açıkken hareketinizi nokta + yarıçap (hassasiyet) olarak görürsünüz. İz kaydı çizilir.</p>
+    </div>
+
+    <div class="group">
+      <h2>Sınır Verisi (Maske)</h2>
+      <p class="hint">Boundary dosyası: <code>Data/boundary.geojson</code>. JPEG ve vektörler <em>bu sınır içinde</em> görünür. (HTTP sunucuda çalıştırın; <code>file://</code> CORS hatası verebilir.)</p>
+    </div>
+  </aside>
+
+  <!-- HARİTA -->
+  <section id="viewDiv"></section>
+</div>
+<div class="toast" id="toast" style="display:none"></div>
+
+<script>
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/GeoJSONLayer",
+  "esri/layers/MediaLayer",
+  "esri/layers/GroupLayer",
+  "esri/geometry/Extent",
+  "esri/Graphic",
+  "esri/layers/GraphicsLayer"
+], function(Map, MapView, GeoJSONLayer, MediaLayer, GroupLayer, Extent, Graphic, GraphicsLayer){
+  'use strict';
+
+  // === Ayarlar ===
+  const DATA_DIR = 'Data';       // <- Büyük D
+  const RASTERS_DIR = 'rasters'; // raster klasörü küçük harfse böyle bırakın
+
+  // === Yardımcılar ===
+  function $(id){ return document.getElementById(id); }
+  function showToast(msg){
+    const t = $("toast");
+    t.textContent = msg; t.style.display = "block";
+    clearTimeout(showToast._to); showToast._to = setTimeout(()=> t.style.display = "none", 2600);
+  }
+
+  // 1) Temel harita + görünüm
+  const map = new Map({ basemap: "topo-vector" });
+  const view = new MapView({
+    container: "viewDiv",
+    map,
+    center: [35.0, 39.0],
+    zoom: 6,
+    constraints: { snapToZoom: false }
+  });
+
+  // 2) Sınır (GeoJSON) – Maske (WGS84 beklenir)
+  const boundary = new GeoJSONLayer({
+    url: `${DATA_DIR}/boundary.geojson`,
+    title: "Sınır (Maske)",
+    renderer: { type: "simple", symbol: { type: "simple-fill", color: [255,255,255,1], outline: { color: [14,165,233,255], width: 1.2 } } },
+    opacity: 1,
+    outFields: ["*"]
+  });
+
+  // 3) JPEG Media katmanları (WGS84 extents verin)
+  function imgElement(src, extent){
+    return { type: "image", image: src, extent: new Extent({ ...extent, spatialReference: { wkid: 4326 } }) };
+  }
+  const JPEG_EXTENTS = {
+    map1: { xmin: 26.0, ymin: 35.5, xmax: 45.0, ymax: 42.5 },
+    map2: { xmin: 26.0, ymin: 35.5, xmax: 45.0, ymax: 42.5 },
+    map3: { xmin: 26.0, ymin: 35.5, xmax: 45.0, ymax: 42.5 }
+  };
+  const media1 = new MediaLayer({ title: "Harita 1", source: [ imgElement(`${RASTERS_DIR}/harita1.jpg`, JPEG_EXTENTS.map1) ], visible: true });
+  const media2 = new MediaLayer({ title: "Harita 2", source: [ imgElement(`${RASTERS_DIR}/harita2.jpg`, JPEG_EXTENTS.map2) ], visible: false });
+  const media3 = new MediaLayer({ title: "Harita 3", source: [ imgElement(`${RASTERS_DIR}/harita3.jpg`, JPEG_EXTENTS.map3) ], visible: false });
+  const rasterGroup = new GroupLayer({ title: "JPEG Haritalar", layers: [media1, media2, media3] });
+
+  // 4) Mahalle (AD etiketli) ve Havza (WGS84 GeoJSON)
+  const mahalleL = new GeoJSONLayer({
+    url: `${DATA_DIR}/mahalle_wgs84.geojson`,
+    title: 'Mahalle',
+    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[0,0,0,0], outline:{ color:[51,65,85,180], width: 0.8 } } },
+    labelingInfo: [{
+      labelExpressionInfo: { expression: "$feature.AD" },
+      deconflictionStrategy: 'static',
+      symbol: { type: 'text', color: [17,24,39], haloColor: [255,255,255], haloSize: 2, font: { family: 'Arial', size: 10, weight: 'bold' } }
+    }],
+    labelsVisible: true,
+    outFields: ["*"]
+  });
+
+  const havzaL = new GeoJSONLayer({
+    url: `${DATA_DIR}/havza_wgs84.geojson`,
+    title: 'Havza',
+    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[34,197,94,40], outline:{ color:[16,185,129,255], width: 1 } } },
+    outFields: ["*"]
+  });
+
+  // 5) Yükleme sırası ve maske
+  (async function init(){
+    try {
+      await view.when();
+
+      // Katman ekleme sırası: rasterlar (alt) -> mahalle & havza -> boundary (en üst, maske)
+      map.addMany([rasterGroup, havzaL, mahalleL, boundary]);
+
+      await Promise.all([rasterGroup.when(), boundary.when(), mahalleL.when(), havzaL.when()]);
+      await Promise.all([
+        view.whenLayerView(boundary),
+        view.whenLayerView(media1),
+        view.whenLayerView(mahalleL)
+      ]);
+
+      boundary.blendMode = 'destination-in'; // tüm alttakileri sınır içinde görünür kılar
+
+      // Yakınlaştır: öncelik mahalle -> havza -> JPEG extents
+      let go = false;
+      try { const ex = await mahalleL.queryExtent(); if(ex && ex.extent){ await view.goTo(ex.extent.expand(1.05)); go = true; } } catch(_){}
+      if(!go){ try { const ex = await havzaL.queryExtent(); if(ex && ex.extent){ await view.goTo(ex.extent.expand(1.05)); go = true; } } catch(_){}
+      if(!go){ const e = JPEG_EXTENTS.map1; await view.goTo(new Extent({ ...e, spatialReference:{wkid:4326} })); }
+
+      runSelfTests();
+    } catch (err) {
+      console.error('Init error:', err);
+      showToast('Yükleme hatası: ' + (err && err.message ? err.message : err));
+    }
+  })();
+
+  // 6) UI bağlama
+  $("lyr-map1").addEventListener("change", (e)=> media1.visible = e.target.checked);
+  $("lyr-map2").addEventListener("change", (e)=> media2.visible = e.target.checked);
+  $("lyr-map3").addEventListener("change", (e)=> media3.visible = e.target.checked);
+
+  $("lyr-mahalle").addEventListener("change", (e)=> { mahalleL.visible = e.target.checked; });
+  $("lyr-havza").addEventListener("change", (e)=> { havzaL.visible = e.target.checked; });
+
+  // 7) GPS katmanı
+  const gpsLayer = new GraphicsLayer({ title: "GPS" });
+  const trackLayer = new GraphicsLayer({ title: "İz" });
+  map.addMany([trackLayer, gpsLayer]);
+
+  let watchId = null; let lastPoint = null;
+  function drawPosition(pos){
+    const { latitude, longitude, accuracy } = pos.coords;
+    const point = { type: "point", longitude, latitude };
+    lastPoint = point;
+
+    gpsLayer.removeAll();
+    const marker = new Graphic({ geometry: point, symbol: { type: "simple-marker", size: 12, outline: {color: "white", width:1}, color: [59,130,246,1] } });
+    const circle = new Graphic({ geometry: point, symbol: { type: "simple-marker", size: Math.max(30, Math.min(120, accuracy/2)), color: [59,130,246,0.12], outline: { color: [59,130,246,0.5], width: 1 } } });
+    gpsLayer.addMany([circle, marker]);
+
+    const lastGraphic = trackLayer.graphics.length ? trackLayer.graphics.getItemAt(trackLayer.graphics.length-1) : null;
+    if(lastGraphic && lastGraphic.geometry && lastGraphic.geometry.type === 'point'){
+      const last = lastGraphic.geometry;
+      const polyline = { type: "polyline", paths: [ [last.longitude, last.latitude], [longitude, latitude] ] };
+      trackLayer.add(new Graphic({ geometry: polyline, symbol: { type: "simple-line", width:2, color:[99,102,241,1] } }));
+    } else {
+      trackLayer.add(new Graphic({ geometry: point, symbol: { type: "simple-marker", size: 4, color:[99,102,241,1] } }));
+    }
+  }
+  function startWatch(){
+    if(!navigator.geolocation){ showToast("Tarayıcı konumu desteklemiyor"); return; }
+    if(watchId!==null) return;
+    watchId = navigator.geolocation.watchPosition(drawPosition, (err)=>{ showToast("Konum alınamadı: "+ err.message); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    showToast("Konum izleme: AÇIK");
+  }
+  function stopWatch(){ if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId = null; showToast("Konum izleme: KAPALI"); } }
+  $("watch-pos").addEventListener("change", (e)=>{ e.target.checked ? startWatch() : stopWatch(); });
+  $("btn-center").addEventListener("click", ()=>{ if(lastPoint){ view.goTo({ center: lastPoint, scale: 3000 }).catch(()=>{}); } else { showToast("Önce konumunuzu açın"); } });
+  $("btn-clear").addEventListener("click", ()=>{ trackLayer.removeAll(); showToast("İz temizlendi"); });
+
+  // 8) Kendi kendine testler
+  function runSelfTests(){
+    console.group("\u2705 Kendini test et");
+    try {
+      console.assert(map.layers.includes(boundary) && map.layers.includes(rasterGroup), "Temel katmanlar eklenmedi");
+      console.assert(!!mahalleL && !!havzaL, 'Mahalle/Havza katmanları yok');
+      if(mahalleL){ console.assert(mahalleL.labelsVisible === true, 'Mahalle etiketleri açık değil'); }
+      const chk = $("lyr-mahalle"); const prev = chk.checked; chk.checked = !prev; chk.dispatchEvent(new Event('change')); console.assert(mahalleL.visible === !prev, 'Mahalle görünürlüğü toggleda değişmedi'); chk.checked = prev; chk.dispatchEvent(new Event('change'));
+    } catch(e){ console.error('Self test hata:', e); }
+    console.groupEnd();
+  }
+});
+</script>
+</body>
+</html>
