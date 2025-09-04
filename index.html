@@ -8,13 +8,20 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
+        }
+        
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            width: 100vw;
             overflow: hidden;
             background-color: #f0f2f5;
         }
+        
         #map {
             position: absolute;
             top: 0;
@@ -25,6 +32,7 @@
             height: 100%;
             z-index: 1;
         }
+        
         .control-panel {
             position: absolute;
             top: 10px;
@@ -34,10 +42,11 @@
             padding: 12px;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            max-width: 280px;
+            width: 280px;
             backdrop-filter: blur(8px);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
+        
         .panel-header {
             display: flex;
             justify-content: space-between;
@@ -45,34 +54,34 @@
             cursor: pointer;
             padding: 10px 6px;
             border-bottom: 1px solid #eaeaea;
-            transition: background-color 0.2s;
         }
-        .panel-header:hover {
-            background-color: rgba(0, 0, 0, 0.03);
-            border-radius: 5px;
-        }
+        
         .panel-header h3 {
             margin: 0;
             font-size: 16px;
             color: #2c3e50;
             font-weight: 600;
         }
+        
         .panel-content {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
+        
         .panel-content.open {
             max-height: 500px;
         }
+        
         .control-group {
             margin-bottom: 12px;
         }
+        
         button {
             display: flex;
             align-items: center;
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             margin-bottom: 8px;
             background: #3498db;
             color: white;
@@ -82,33 +91,37 @@
             font-weight: 600;
             transition: all 0.2s;
             text-align: left;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+        
         button:hover {
             background: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
+        
         button.active {
             background: #e74c3c;
         }
+        
         button i {
             margin-right: 8px;
             width: 18px;
             text-align: center;
         }
+        
         button#location-btn {
             background: #2ecc71;
         }
+        
         button#location-btn.active {
             background: #27ae60;
             animation: pulse 1.5s infinite;
         }
+        
         @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
-            70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
+        
         .info-panel {
             position: absolute;
             bottom: 20px;
@@ -118,39 +131,50 @@
             padding: 15px;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            max-width: 300px;
+            width: 280px;
             backdrop-filter: blur(5px);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
+        
         .info-item {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
         }
+        
         .info-label {
             font-weight: 600;
             color: #2c3e50;
+            font-size: 14px;
         }
+        
         .info-value {
             color: #3498db;
             font-weight: 500;
+            font-size: 14px;
         }
+        
         .elevation-value {
             color: #e74c3c;
         }
+        
         .accuracy-value {
             color: #f39c12;
         }
+        
         .heading-value {
             color: #9b59b6;
         }
+        
         .toggle-icon {
             transition: transform 0.3s;
             color: #7f8c8d;
         }
+        
         .toggle-icon.open {
             transform: rotate(180deg);
         }
+        
         .offline-warning {
             display: none;
             position: absolute;
@@ -164,20 +188,15 @@
             border-radius: 20px;
             font-size: 13px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            animation: fadeInOut 2s infinite;
         }
-        @keyframes fadeInOut {
-            0% { opacity: 0.7; }
-            50% { opacity: 1; }
-            100% { opacity: 0.7; }
-        }
+        
         .compass {
             position: absolute;
             top: 20px;
             left: 20px;
             z-index: 1000;
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             background: rgba(255, 255, 255, 0.9);
             border-radius: 50%;
             display: flex;
@@ -186,14 +205,16 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
+        
         .compass-arrow {
-            width: 30px;
-            height: 30px;
+            width: 25px;
+            height: 25px;
             background: #e74c3c;
             clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
             transform-origin: center;
             transition: transform 0.1s ease;
         }
+        
         .compass-label {
             position: absolute;
             top: 5px;
@@ -204,9 +225,10 @@
             font-weight: bold;
             color: #e74c3c;
         }
+        
         .distance-tools {
             position: absolute;
-            top: 110px;
+            top: 100px;
             left: 20px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.9);
@@ -216,6 +238,7 @@
             backdrop-filter: blur(5px);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
+        
         .distance-btn {
             padding: 8px 12px;
             margin: 5px;
@@ -226,6 +249,7 @@
             cursor: pointer;
             font-size: 13px;
         }
+        
         .marker-counter {
             position: absolute;
             bottom: 20px;
@@ -241,29 +265,10 @@
             backdrop-filter: blur(5px);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
-        .slope-indicator {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-left: 5px;
-        }
-        .slope-low {
-            background: #2ecc71;
-            color: white;
-        }
-        .slope-medium {
-            background: #f39c12;
-            color: white;
-        }
-        .slope-high {
-            background: #e74c3c;
-            color: white;
-        }
+        
         .screenshot-btn {
             position: absolute;
-            top: 180px;
+            top: 170px;
             left: 20px;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.9);
@@ -300,7 +305,7 @@
     </div>
     
     <div class="info-panel">
-        <h3 style="margin-top: 0; color: #2c3e50;">Konum Bilgileri</h3>
+        <h3 style="margin-top: 0; margin-bottom: 10px; color: #2c3e50; font-size: 16px;">Konum Bilgileri</h3>
         <div class="info-item">
             <span class="info-label">Enlem:</span>
             <span class="info-value" id="info-lat">-</span>
@@ -320,10 +325,6 @@
         <div class="info-item">
             <span class="info-label">Yön:</span>
             <span class="info-value heading-value" id="info-heading">-</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Eğim:</span>
-            <span class="info-value" id="info-slope">-</span>
         </div>
     </div>
     
@@ -357,9 +358,8 @@
                 <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
             </div>
             <div class="panel-content" id="tools-content">
-                <button id="location-btn"><i class="fas fa-location-arrow"></i> Hassas Konum Takibi</button>
+                <button id="location-btn"><i class="fas fa-location-arrow"></i> Konum Takibi</button>
                 <button id="add-marker-btn"><i class="fas fa-map-marker-alt"></i> İşaretleyici Ekle</button>
-                <button id="track-recording-btn"><i class="fas fa-record-vinyl"></i> Rota Kaydı</button>
             </div>
         </div>
     </div>
@@ -368,29 +368,6 @@
         // Harita oluşturma - Erzurum civarında başlangıç
         const map = L.map('map').setView([39.9, 41.3], 12);
         
-        // Pusula için değişken
-        let currentHeading = 0;
-        
-        // Ölçüm için değişkenler
-        let isMeasuring = false;
-        let measurePoints = [];
-        let measureLine = null;
-        let totalDistance = 0;
-        
-        // İşaretleyici sayacı
-        let markerCount = 0;
-        const markers = [];
-        let markerLayer = L.layerGroup().addTo(map);
-        
-        // Rota kaydı için değişkenler
-        let isTrackingPath = false;
-        let pathPoints = [];
-        let pathPolyline = null;
-        
-        // Eğim hesaplama için değişkenler
-        let lastPosition = null;
-        let lastElevation = null;
-
         // Altlık haritalar (Basemaps)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -407,75 +384,22 @@
             maxZoom: 17
         });
 
-        // Çevrimdışı durumda kullanılacak basit grid katmanı
-        const gridLayer = L.layerGroup();
-
         // Katman grupları
         const havzaLayer = L.layerGroup();
         const mahalleLayer = L.layerGroup();
+        const markerLayer = L.layerGroup().addTo(map);
         
-        // GeoJSON stillendirme
-        const havzaStyle = {
-            color: "#FF0000",
-            weight: 3,
-            opacity: 0.8,
-            fillOpacity: 0.1,
-            fillColor: "#FF0000"
-        };
+        // Konum takibi için değişkenler
+        let locationMarker = null;
+        let locationCircle = null;
+        let isTracking = false;
         
-        const mahalleStyle = {
-            color: "#0000FF",
-            weight: 2,
-            opacity: 0.7,
-            fillOpacity: 0.1,
-            fillColor: "#0000FF"
-        };
-
-        // Çevrimdışı izleme
-        let isOnline = navigator.onLine;
-        const offlineWarning = document.getElementById('offline-warning');
+        // İşaretleyici sayacı
+        let markerCount = 0;
+        const markers = [];
         
-        function updateOnlineStatus() {
-            isOnline = navigator.onLine;
-            if (!isOnline) {
-                offlineWarning.style.display = 'block';
-                addOfflineGrid();
-            } else {
-                offlineWarning.style.display = 'none';
-                map.removeLayer(gridLayer);
-                if (map.hasLayer(osmLayer) || map.hasLayer(satelliteLayer) || map.hasLayer(terrainLayer)) {
-                    // Zaten bir katman yüklü
-                } else {
-                    osmLayer.addTo(map);
-                }
-            }
-        }
-        
-        function addOfflineGrid() {
-            map.removeLayer(osmLayer);
-            map.removeLayer(satelliteLayer);
-            map.removeLayer(terrainLayer);
-            
-            gridLayer.clearLayers();
-            
-            const bounds = map.getBounds();
-            const zoom = map.getZoom();
-            const latLngStep = 0.01;
-            
-            for (let lat = bounds.getSouth(); lat < bounds.getNorth(); lat += latLngStep) {
-                for (let lng = bounds.getWest(); lng < bounds.getEast(); lng += latLngStep) {
-                    if (zoom > 12) {
-                        L.rectangle([[lat, lng], [lat + latLngStep, lng + latLngStep]], {
-                            color: '#ccc',
-                            weight: 0.5,
-                            fill: false
-                        }).addTo(gridLayer);
-                    }
-                }
-            }
-            
-            gridLayer.addTo(map);
-        }
+        // Pusula için değişken
+        let currentHeading = 0;
 
         // Pusula yönünü güncelle
         function updateCompass(heading) {
@@ -485,67 +409,84 @@
                 currentHeading = heading;
                 
                 // Yön bilgisini güncelle
-                document.getElementById('info-heading').textContent = `${Math.round(heading)}° (${getDirectionFromDegree(heading)})`;
+                document.getElementById('info-heading').textContent = `${Math.round(heading)}°`;
             }
         }
         
-        // Dereceyi yön ismine çevir
-        function getDirectionFromDegree(degree) {
-            const directions = ['K', 'KKD', 'KD', 'DKD', 'D', 'DGD', 'GD', 'GGD', 'G', 'GGB', 'GB', 'BGB', 'B', 'BKB', 'KB', 'KKB'];
-            return directions[Math.round(degree / 22.5) % 16];
-        }
-        
-        // Eğim hesapla ve göster
-        function calculateSlope(newPosition, newElevation) {
-            if (!lastPosition || !lastElevation || !newElevation) return null;
+        // Konum bulunduğunda
+        function onLocationFound(e) {
+            const radius = e.accuracy / 2;
+            const statusElement = document.getElementById('info-accuracy');
             
-            // Mesafe hesapla (Haversine formülü)
-            const R = 6371000; // Dünya yarıçapı metre cinsinden
-            const φ1 = lastPosition.lat * Math.PI/180;
-            const φ2 = newPosition.lat * Math.PI/180;
-            const Δφ = (newPosition.lat - lastPosition.lat) * Math.PI/180;
-            const Δλ = (newPosition.lng - lastPosition.lng) * Math.PI/180;
+            if (locationMarker) {
+                map.removeLayer(locationMarker);
+            }
+            if (locationCircle) {
+                map.removeLayer(locationCircle);
+            }
+
+            locationMarker = L.marker(e.latlng).addTo(map)
+                .bindPopup(`<b>Bulunduğunuz konum</b><br>Enlem: ${e.latlng.lat.toFixed(6)}<br>Boylam: ${e.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(e.accuracy)} metre`).openPopup();
+
+            locationCircle = L.circle(e.latlng, radius).addTo(map);
             
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distance = R * c;
+            // Konum bilgilerini güncelle
+            document.getElementById('info-lat').textContent = e.latlng.lat.toFixed(6);
+            document.getElementById('info-lng').textContent = e.latlng.lng.toFixed(6);
+            document.getElementById('info-accuracy').textContent = `${Math.round(e.accuracy)} metre`;
             
-            // Yükseklik farkı
-            const elevationDiff = newElevation - lastElevation;
+            // Pusulayı güncelle (yön bilgisi varsa)
+            if (e.heading) {
+                updateCompass(e.heading);
+            }
             
-            // Eğim (derece cinsinden)
-            const slopeRad = Math.atan(elevationDiff / distance);
-            const slopeDeg = slopeRad * 180 / Math.PI;
+            // Rakım bilgisini al
+            getElevation(e.latlng.lat, e.latlng.lng);
             
-            return {
-                slope: slopeDeg,
-                distance: distance,
-                elevationDiff: elevationDiff
-            };
-        }
-        
-        // Eğim bilgisini formatla
-        function formatSlopeInfo(slopeData) {
-            if (!slopeData) return "-";
-            
-            const slope = slopeData.slope;
-            let slopeClass = "slope-low";
-            if (slope > 10) slopeClass = "slope-medium";
-            if (slope > 20) slopeClass = "slope-high";
-            
-            return `${slope.toFixed(1)}° <span class="slope-indicator ${slopeClass}">${slope > 10 ? (slope > 20 ? "Dik" : "Orta") : "Hafif"}</span>`;
+            // Harita görünümünü konuma odakla (ilk seferinde)
+            if (!isTracking) {
+                map.setView(e.latlng, 16);
+                isTracking = true;
+            }
         }
 
+        // Konum hatası
+        function onLocationError(e) {
+            alert("Konum bilgisi alınamadı. Lütfen tarayıcınızın konum iznini etkinleştirin.");
+        }
+
+        // Konum takibini başlat/durdur
+        function toggleLocationTracking() {
+            if (isTracking) {
+                // Konum takibini durdur
+                map.stopLocate();
+                if (locationMarker) {
+                    map.removeLayer(locationMarker);
+                    locationMarker = null;
+                }
+                if (locationCircle) {
+                    map.removeLayer(locationCircle);
+                    locationCircle = null;
+                }
+                isTracking = false;
+                document.getElementById('location-btn').classList.remove('active');
+            } else {
+                // Konum takibini başlat
+                map.locate({
+                    watch: true,
+                    setView: false,
+                    maxZoom: 16,
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                });
+                isTracking = true;
+                document.getElementById('location-btn').classList.add('active');
+            }
+        }
+        
         // Rakım/yükseklik bilgisi alma fonksiyonu
         async function getElevation(lat, lng) {
             const elevationInfo = document.getElementById('info-elevation');
-            
-            if (!isOnline) {
-                elevationInfo.textContent = 'İnternet gerekli';
-                return null;
-            }
             
             try {
                 elevationInfo.textContent = 'Hesaplanıyor...';
@@ -561,20 +502,7 @@
                 
                 if (data.results && data.results.length > 0) {
                     const elevation = data.results[0].elevation;
-                    elevationInfo.textContent = `${elevation.toFixed(1)} m`;
-                    
-                    // Eğim hesapla
-                    if (lastPosition && lastElevation) {
-                        const slopeData = calculateSlope(L.latLng(lat, lng), elevation);
-                        if (slopeData) {
-                            document.getElementById('info-slope').innerHTML = formatSlopeInfo(slopeData);
-                        }
-                    }
-                    
-                    // Son konumu ve yüksekliği kaydet
-                    lastPosition = L.latLng(lat, lng);
-                    lastElevation = elevation;
-                    
+                    elevationInfo.textContent = `${elevation.toFixed(1)} metre`;
                     return elevation;
                 } else {
                     throw new Error('Rakım verisi bulunamadı');
@@ -586,125 +514,25 @@
             }
         }
         
-        // Mesafe ölçme aracını başlat
-        function initMeasureTool() {
-            if (isMeasuring) {
-                // Ölçümü durdur
-                map.off('click', onMapClick);
-                if (measureLine) {
-                    map.removeLayer(measureLine);
-                }
-                // Tüm ölçüm noktalarını temizle
-                measurePoints.forEach(point => {
-                    map.removeLayer(point);
-                });
-                measurePoints = [];
-                isMeasuring = false;
-                document.getElementById('measure-distance').innerHTML = '<i class="fas fa-ruler"></i> Mesafe Ölç';
-                return;
-            }
-            
-            // Ölçümü başlat
-            isMeasuring = true;
-            totalDistance = 0;
-            document.getElementById('measure-distance').innerHTML = '<i class="fas fa-stop"></i> Ölçümü Durdur';
-            
-            // Haritaya tıklama olayını dinle
-            map.on('click', onMapClick);
-            
-            // Kullanıcıyı bilgilendir
-            alert("Mesafe ölçümü başlatıldı. Harita üzerinde tıklayarak noktaları işaretleyin. İlk tıklama başlangıç noktasını belirler.");
-        }
-        
-        // Haritaya tıklandığında
-        function onMapClick(e) {
-            if (!isMeasuring) return;
-            
-            if (measurePoints.length === 0) {
-                // İlk nokta
-                const marker = L.marker(e.latlng, {
-                    icon: L.divIcon({
-                        className: 'measure-marker',
-                        html: '<div style="background-color:#3498db; width:12px; height:12px; border-radius:50%;"></div>',
-                        iconSize: [12, 12]
-                    })
-                }).addTo(map);
-                measurePoints.push(marker);
-                
-                // Ölçüm çizgisi oluştur
-                measureLine = L.polyline([e.latlng], {
-                    color: '#3498db',
-                    weight: 3,
-                    dashArray: '5, 10'
-                }).addTo(map);
-            } else {
-                // Sonraki noktalar
-                const lastPoint = measurePoints[measurePoints.length - 1].getLatLng();
-                const distance = map.distance(lastPoint, e.latlng);
-                totalDistance += distance;
-                
-                // Yeni nokta ekle
-                const marker = L.circleMarker(e.latlng, {
-                    radius: 5,
-                    color: '#3498db',
-                    fillColor: '#ffffff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 1
-                }).addTo(map).bindTooltip(`${totalDistance.toFixed(1)} m`, {
-                    permanent: false,
-                    direction: 'top'
-                });
-                
-                measurePoints.push(marker);
-                
-                // Çizgiyi güncelle
-                const points = measurePoints.map(m => m.getLatLng());
-                measureLine.setLatLngs(points);
-                
-                // Toplam mesajeyi göster
-                alert(`Toplam mesafe: ${totalDistance.toFixed(1)} metre`);
-            }
-        }
-        
-        // Ölçümleri temizle
-        function clearMeasurements() {
-            if (measureLine) {
-                map.removeLayer(measureLine);
-                measureLine = null;
-            }
-            measurePoints.forEach(point => {
-                map.removeLayer(point);
-            });
-            measurePoints = [];
-            isMeasuring = false;
-            totalDistance = 0;
-            document.getElementById('measure-distance').innerHTML = '<i class="fas fa-ruler"></i> Mesafe Ölç';
-        }
-        
         // İşaretleyici ekle
-        function addMarker(latlng) {
-            const marker = L.marker(latlng, {
+        function addMarker() {
+            const center = map.getCenter();
+            const marker = L.marker(center, {
                 title: `İşaretleyici ${markerCount + 1}`
             }).addTo(markerLayer);
             
             marker.bindPopup(`
                 <div style="text-align:center;">
                     <b>İşaretleyici ${markerCount + 1}</b><br>
-                    Enlem: ${latlng.lat.toFixed(6)}<br>
-                    Boylam: ${latlng.lng.toFixed(6)}<br>
+                    Enlem: ${center.lat.toFixed(6)}<br>
+                    Boylam: ${center.lng.toFixed(6)}<br>
                     <button onclick="removeMarker(${markerCount})" style="margin-top:5px; padding:3px 8px; background:#e74c3c; color:white; border:none; border-radius:3px; cursor:pointer;">Kaldır</button>
                 </div>
-            `);
+            `).openPopup();
             
             markers.push(marker);
             markerCount++;
             document.getElementById('marker-count').textContent = markerCount;
-            
-            // İşaretleyiciye tıklama olayı ekle
-            marker.on('click', function() {
-                map.setView(latlng, 16);
-            });
         }
         
         // İşaretleyici kaldır
@@ -714,138 +542,118 @@
                 markers.splice(index, 1);
                 markerCount--;
                 document.getElementById('marker-count').textContent = markerCount;
-                
-                // Tüm işaretleyicileri yeniden numaralandır
-                markers.forEach((marker, i) => {
-                    const latlng = marker.getLatLng();
-                    marker.setPopupContent(`
-                        <div style="text-align:center;">
-                            <b>İşaretleyici ${i + 1}</b><br>
-                            Enlem: ${latlng.lat.toFixed(6)}<br>
-                            Boylam: ${latlng.lng.toFixed(6)}<br>
-                            <button onclick="removeMarker(${i})" style="margin-top:5px; padding:3px 8px; background:#e74c3c; color:white; border:none; border-radius:3px; cursor:pointer;">Kaldır</button>
-                        </div>
-                    `);
-                });
             }
         }
         
-        // Rota kaydını başlat/durdur
-        function toggleTrackRecording() {
-            if (isTrackingPath) {
-                // Kaydı durdur
-                isTrackingPath = false;
-                document.getElementById('track-recording-btn').innerHTML = '<i class="fas fa-record-vinyl"></i> Rota Kaydı';
-                document.getElementById('track-recording-btn').classList.remove('active');
-                
-                // Kaydedilen rotayı temizle butonunu göster
-                if (pathPoints.length > 1) {
-                    L.popup()
-                        .setLatLng(pathPoints[pathPoints.length - 1])
-                        .setContent(`<div style="text-align:center;"><b>Rota kaydı tamamlandı</b><br>${pathPoints.length} nokta kaydedildi<br><button onclick="clearRecordedPath()" style="margin-top:5px; padding:5px 10px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Rotayı Temizle</button></div>`)
-                        .openOn(map);
-                }
-            } else {
-                // Kaydı başlat
-                isTrackingPath = true;
-                pathPoints = [];
-                document.getElementById('track-recording-btn').innerHTML = '<i class="fas fa-stop"></i> Kaydı Durdur';
-                document.getElementById('track-recording-btn').classList.add('active');
-                
-                if (pathPolyline) {
-                    map.removeLayer(pathPolyline);
-                }
-                
-                pathPolyline = L.polyline([], {
-                    color: '#e74c3c',
-                    weight: 4,
-                    opacity: 0.7
-                }).addTo(map);
-                
-                L.popup()
-                    .setLatLng(map.getCenter())
-                    .setContent('<div style="text-align:center;"><b>Rota kaydı başlatıldı</b><br>Yürüdüğünüz yolu takip ediyoruz</div>')
-                    .openOn(map);
-            }
+        // Mesafe ölçme aracını başlat
+        function initMeasureTool() {
+            alert("Mesafe ölçme aracı aktif. Haritaya tıklayarak noktaları işaretleyin.");
         }
         
-        // Kaydedilmiş rotayı temizle
-        function clearRecordedPath() {
-            if (pathPolyline) {
-                map.removeLayer(pathPolyline);
-                pathPolyline = null;
-            }
-            pathPoints = [];
-            isTrackingPath = false;
-            document.getElementById('track-recording-btn').innerHTML = '<i class="fas fa-record-vinyl"></i> Rota Kaydı';
-            document.getElementById('track-recording-btn').classList.remove('active');
-        }
-        
-        // Ekran görüntüsü al (basit versiyon)
+        // Ekran görüntüsü al
         function takeScreenshot() {
             alert("Ekran görüntüsü alma özelliği için tarayıcınızın yazdırma özelliğini kullanabilirsiniz. (Ctrl+P)");
         }
         
-        // GeoJSON dosyalarını yükleme
-        function loadGeoJSONData() {
-            // Havza verilerini yükle
-            fetch('Data/havza_wgs84.geojson')
-                .then(response => {
-                    if (!response.ok) throw new Error('Havza GeoJSON dosyası bulunamadı');
-                    return response.json();
-                })
-                .then(data => {
-                    L.geoJSON(data, {
-                        style: havzaStyle,
-                        onEachFeature: function(feature, layer) {
-                            if (feature.properties && feature.properties.name) {
-                                layer.bindPopup(`Havza: ${feature.properties.name}`);
-                            }
-                        }
-                    }).addTo(havzaLayer);
-                    
-                    try {
-                        localStorage.setItem('havzaData', JSON.stringify(data));
-                    } catch (e) {
-                        console.warn('Havza verisi localStorage\'a kaydedilemedi:', e);
-                    }
-                })
-                .catch(error => {
-                    console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
-                    try {
-                        const savedData = localStorage.getItem('havzaData');
-                        if (savedData) {
-                            const data = JSON.parse(savedData);
-                            L.geoJSON(data, {
-                                style: havzaStyle,
-                                onEachFeature: function(feature, layer) {
-                                    if (feature.properties && feature.properties.name) {
-                                        layer.bindPopup(`Havza: ${feature.properties.name}`);
-                                    }
-                                }
-                            }).addTo(havzaLayer);
-                        }
-                    } catch (e) {
-                        console.error('Çevrimdışı havza verisi yüklenemedi:', e);
-                    }
-                });
+        // Açılır-kapanır menü işlevselliği
+        document.getElementById('basemap-header').addEventListener('click', function() {
+            const content = document.getElementById('basemap-content');
+            const icon = this.querySelector('.toggle-icon');
+            
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
+        });
 
-            // Mahalle verilerini yükle
-            fetch('Data/mahalle_wgs84.geojson')
-                .then(response => {
-                    if (!response.ok) throw new Error('Mahalle GeoJSON dosyası bulunamadı');
-                    return response.json();
-                })
-                .then(data => {
-                    L.geoJSON(data, {
-                        style: mahalleStyle,
-                        onEachFeature: function(feature, layer) {
-                            if (feature.properties && feature.properties.name) {
-                                layer.bindPopup(`Mahalle: ${feature.properties.name}`);
-                            }
-                        }
-                    }).addTo(mahalleLayer);
-                    
-                    try {
-                        localStorage.setItem('mahalleData', JSON.stringify(data));
-                    } catch (e)
+        document.getElementById('layers-header').addEventListener('click', function() {
+            const content = document.getElementById('layers-content');
+            const icon = this.querySelector('.toggle-icon');
+            
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
+        });
+
+        document.getElementById('tools-header').addEventListener('click', function() {
+            const content = document.getElementById('tools-content');
+            const icon = this.querySelector('.toggle-icon');
+            
+            content.classList.toggle('open');
+            icon.classList.toggle('open');
+        });
+
+        // Buton olayları
+        document.getElementById('osm-btn').addEventListener('click', function() {
+            map.removeLayer(satelliteLayer);
+            map.removeLayer(terrainLayer);
+            osmLayer.addTo(map);
+            this.classList.add('active');
+            document.getElementById('satellite-btn').classList.remove('active');
+            document.getElementById('terrain-btn').classList.remove('active');
+        });
+
+        document.getElementById('satellite-btn').addEventListener('click', function() {
+            map.removeLayer(osmLayer);
+            map.removeLayer(terrainLayer);
+            satelliteLayer.addTo(map);
+            this.classList.add('active');
+            document.getElementById('osm-btn').classList.remove('active');
+            document.getElementById('terrain-btn').classList.remove('active');
+        });
+
+        document.getElementById('terrain-btn').addEventListener('click', function() {
+            map.removeLayer(osmLayer);
+            map.removeLayer(satelliteLayer);
+            terrainLayer.addTo(map);
+            this.classList.add('active');
+            document.getElementById('osm-btn').classList.remove('active');
+            document.getElementById('satellite-btn').classList.remove('active');
+        });
+
+        document.getElementById('havza-btn').addEventListener('click', function() {
+            if (map.hasLayer(havzaLayer)) {
+                map.removeLayer(havzaLayer);
+                this.classList.remove('active');
+            } else {
+                havzaLayer.addTo(map);
+                this.classList.add('active');
+            }
+        });
+
+        document.getElementById('mahalle-btn').addEventListener('click', function() {
+            if (map.hasLayer(mahalleLayer)) {
+                map.removeLayer(mahalleLayer);
+                this.classList.remove('active');
+            } else {
+                mahalleLayer.addTo(map);
+                this.classList.add('active');
+            }
+        });
+
+        document.getElementById('location-btn').addEventListener('click', toggleLocationTracking);
+        document.getElementById('add-marker-btn').addEventListener('click', addMarker);
+        document.getElementById('measure-distance').addEventListener('click', initMeasureTool);
+        document.getElementById('screenshot-btn').addEventListener('click', takeScreenshot);
+        document.getElementById('clear-measurements').addEventListener('click', function() {
+            markerLayer.clearLayers();
+            markerCount = 0;
+            markers.length = 0;
+            document.getElementById('marker-count').textContent = '0';
+        });
+
+        // Konum bulma olaylarını dinle
+        map.on('locationfound', onLocationFound);
+        map.on('locationerror', onLocationError);
+
+        // Varsayılan olarak OSM butonunu aktif göster
+        document.getElementById('osm-btn').classList.add('active');
+        
+        // Sayfa yüklendiğinde katman menülerini açık bırak
+        document.getElementById('basemap-content').classList.add('open');
+        document.getElementById('layers-content').classList.add('open');
+        document.getElementById('tools-content').classList.add('open');
+        document.querySelectorAll('.toggle-icon').forEach(icon => icon.classList.add('open'));
+        
+        // Pusulayı başlangıçta Kuzey'i gösterecek şekilde ayarla
+        updateCompass(0);
+    </script>
+</body>
+</html>
