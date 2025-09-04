@@ -3,246 +3,82 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Harita Projesi (Sıfırdan) — Basemap + GeoJSON + JPEG + Maske + GPS</title>
+  <title>Sade Görünüm — Sadece GeoJSON (Tam Ekran)</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.26/"></script>
   <style>
-    :root{--sidebar-w:340px}
-    html, body { height: 100%; width: 100%; margin: 0; }
-    #app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100vh; }
-    #sidebar { background: #0f172a; color: #f8fafc; padding: 16px 14px; overflow-y: auto; box-shadow: 2px 0 12px rgba(0,0,0,.2); }
-    #sidebar h1 { font-size: 18px; margin: 0 0 12px; letter-spacing:.3px }
-    .group { margin: 14px 0; padding: 12px; background: #111827; border-radius: 14px; border:1px solid #1f2937 }
-    .group h2 { font-size: 14px; margin: 0 0 10px; color:#cbd5e1 }
-    .layer-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px dashed #334155 }
-    .layer-item:first-child{border-top:0}
-    .hint { font-size: 12px; color:#94a3b8; line-height:1.4 }
-    .btn { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; cursor:pointer }
-    .btn:active{transform:translateY(1px)}
-    .switch { position: relative; width: 46px; height: 26px; }
-    .switch input { display: none; }
-    .slider { position: absolute; cursor: pointer; inset:0; background: #475569; border-radius: 999px; transition: .2s; }
-    .slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: .2s; }
-    input:checked + .slider { background: #16a34a; }
-    input:checked + .slider:before { transform: translateX(20px); }
-    #viewDiv { position: relative; height: 100%; width: 100%; }
-
-    .toast { position:absolute; left:calc(var(--sidebar-w) + 16px); top:16px; background:#111827; color:#e5e7eb; padding:8px 12px; border-radius:10px; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,.2); font-size:12px; z-index: 1000; }
-    .status { font-size:12px; margin-top:8px; padding:8px; border-radius:12px; background:#0b1220; border:1px solid #1f2937; }
-    .ok{color:#22c55e} .warn{color:#f59e0b} .err{color:#ef4444}
+    html, body, #viewDiv { height: 100%; width: 100%; margin: 0; padding: 0; }
+    #msg { position: fixed; top: 10px; left: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(15,23,42,.9); color: #e5e7eb; font: 12px system-ui; z-index: 1000; }
   </style>
 </head>
 <body>
-<div id="app">
-  <!-- SOL MENÜ -->
-  <aside id="sidebar">
-    <h1>🗺️ Katmanlar</h1>
-
-    <div class="group">
-      <h2>Veri Yolları</h2>
-      <p class="hint">Data klasörü: <code>Data/</code> (Büyük D) — Raster klasörü: <code>rasters/</code></p>
-    </div>
-
-    <div class="group">
-      <h2>Vektör Katmanları (WGS84)</h2>
-      <div class="layer-item"><span>Mahalle (AD etiketli)</span>
-        <label class="switch"><input type="checkbox" id="lyr-mahalle" checked><span class="slider"></span></label>
-      </div>
-      <div class="layer-item"><span>Havza</span>
-        <label class="switch"><input type="checkbox" id="lyr-havza" checked><span class="slider"></span></label>
-      </div>
-      <p class="hint">Dosyalar: <code>Data/mahalle_wgs84.geojson</code>, <code>Data/havza_wgs84.geojson</code></p>
-    </div>
-
-    <div class="group">
-      <h2>JPEG Haritalar</h2>
-      <div class="layer-item"><span>Harita 1</span>
-        <label class="switch"><input type="checkbox" id="lyr-map1"><span class="slider"></span></label>
-      </div>
-      <div class="layer-item"><span>Harita 2</span>
-        <label class="switch"><input type="checkbox" id="lyr-map2"><span class="slider"></span></label>
-      </div>
-      <div class="layer-item"><span>Harita 3</span>
-        <label class="switch"><input type="checkbox" id="lyr-map3"><span class="slider"></span></label>
-      </div>
-      <p class="hint">Rasterlar: <code>rasters/harita1.jpg</code> vb.  Extent değerlerini JS'te doldurun.</p>
-    </div>
-
-    <div class="group">
-      <h2>Maske</h2>
-      <div class="layer-item"><span>Maskeyi uygula (boundary)</span>
-        <label class="switch"><input type="checkbox" id="mask-toggle"><span class="slider"></span></label>
-      </div>
-      <p class="hint">Boundary: <code>Data/boundary.geojson</code>. Boş/404 ise maske otomatik DEVRE DIŞI.</p>
-    </div>
-
-    <div class="group">
-      <h2>Canlı Konum</h2>
-      <div class="layer-item"><span>Konumu izle</span>
-        <label class="switch"><input type="checkbox" id="watch-pos"><span class="slider"></span></label>
-      </div>
-      <div style="display:flex; gap:8px; margin-top:8px">
-        <button class="btn" id="btn-center">Merkez / Yakınlaştır</button>
-        <button class="btn" id="btn-clear">İzi Temizle</button>
-      </div>
-      <p class="hint">GPS açıkken hareketinizi nokta + yarıçap (hassasiyet) olarak görürsünüz.</p>
-    </div>
-
-    <div class="group">
-      <h2>Durum</h2>
-      <div id="status" class="status"></div>
-    </div>
-  </aside>
-
-  <!-- HARİTA -->
-  <section id="viewDiv"></section>
-</div>
-<div class="toast" id="toast" style="display:none"></div>
+  <div id="viewDiv"></div>
+  <div id="msg" style="display:none"></div>
 
 <script>
 require([
   "esri/Map",
   "esri/views/MapView",
   "esri/layers/GeoJSONLayer",
-  "esri/layers/MediaLayer",
-  "esri/layers/support/ImageElement",
-  "esri/layers/GroupLayer",
-  "esri/geometry/Extent",
-  "esri/Graphic",
-  "esri/layers/GraphicsLayer"
-], function(Map, MapView, GeoJSONLayer, MediaLayer, ImageElement, GroupLayer, Extent, Graphic, GraphicsLayer){
+  "esri/geometry/Extent"
+], function(Map, MapView, GeoJSONLayer, Extent){
   'use strict';
 
-  // === Ayarlar ===
-  const DATA_DIR = 'Data';       // <- Büyük D
-  const RASTERS_DIR = 'rasters'; // <- tam eşleşmeli klasör adı
+  // Yollar (büyük-küçük harf önemli)
+  const MAHALLE_URL = 'Data/mahalle_wgs84.geojson';
+  const HAVZA_URL   = 'Data/havza_wgs84.geojson';
 
-  // === Yardımcılar ===
-  const $ = (id) => document.getElementById(id);
-  const statusBox = $("status");
-  const log = (type, msg) => {
-    const span = document.createElement('div');
-    span.className = type; span.textContent = msg; statusBox.appendChild(span);
-    // console'a da düşelim
-    (type==='err'?console.error:type==='warn'?console.warn:console.log)(msg);
-  };
-  function showToast(msg){ const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(showToast._to); showToast._to = setTimeout(()=> t.style.display = "none", 2600); }
+  function show(msg){ const el = document.getElementById('msg'); el.textContent = msg; el.style.display = 'block'; clearTimeout(show._t); show._t = setTimeout(()=> el.style.display='none', 3500); }
 
-  // 1) Temel harita + görünüm (önce basemap görünsün)
-  const map = new Map({ basemap: "topo-vector" });
-  const view = new MapView({ container: "viewDiv", map, center: [35, 39], zoom: 6, constraints: { snapToZoom: false } });
+  const map = new Map({ basemap: 'topo-vector' });
+  const view = new MapView({ container: 'viewDiv', map, center: [35,39], zoom: 6 });
 
-  // 2) Katmanlar (WGS84 beklenir)
-  const boundary = new GeoJSONLayer({
-    url: `${DATA_DIR}/boundary.geojson`,
-    title: "Sınır (Maske)",
-    renderer: { type: "simple", symbol: { type: "simple-fill", color: [255,255,255,1], outline: { color: [14,165,233,255], width: 1.2 } } },
-    opacity: 1
+  // Mahalle (AD etiketli)
+  const mahalle = new GeoJSONLayer({
+    url: MAHALLE_URL,
+    title: 'Mahalle',
+    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[0,0,0,0], outline:{ color:[51,65,85,200], width: 0.8 } } },
+    labelingInfo: [{
+      labelExpressionInfo: { expression: "$feature.AD" },
+      symbol: { type: 'text', color: [17,24,39], haloColor: [255,255,255], haloSize: 2, font: { family: 'Arial', size: 10, weight: 'bold' } }
+    }],
+    labelsVisible: true,
+    outFields: ["*"]
   });
 
-  const mahalleL = new GeoJSONLayer({
-    url: `${DATA_DIR}/mahalle_wgs84.geojson`, title: 'Mahalle',
-    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[0,0,0,0], outline:{ color:[51,65,85,180], width: 0.8 } } },
-    labelingInfo: [{ labelExpressionInfo: { expression: "$feature.AD" }, deconflictionStrategy: 'static', symbol: { type: 'text', color: [17,24,39], haloColor: [255,255,255], haloSize: 2, font: { family: 'Arial', size: 10, weight: 'bold' } } }],
-    labelsVisible: true
+  // Havza
+  const havza = new GeoJSONLayer({
+    url: HAVZA_URL,
+    title: 'Havza',
+    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[34,197,94,40], outline:{ color:[16,185,129,255], width: 1 } } },
+    outFields: ["*"]
   });
 
-  const havzaL = new GeoJSONLayer({
-    url: `${DATA_DIR}/havza_wgs84.geojson`, title: 'Havza',
-    renderer: { type:'simple', symbol:{ type:'simple-fill', color:[34,197,94,40], outline:{ color:[16,185,129,255], width: 1 } } }
-  });
-
-  // 3) JPEG katmanları — tembel yükleme (toggle açılınca oluştur)
-  const JPEG_EXTENTS = {
-    map1: { xmin: 26.0, ymin: 35.5, xmax: 45.0, ymax: 42.5 },
-    map2: { xmin: 26.0, ymin: 35.5, xmax: 45.0, ymax: 42.5 },
-    map3: { xmin: 26.0, ymin: 35.5, xmax: 45.0, ymax: 42.5 }
-  };
-  let media1=null, media2=null, media3=null; const rasterGroup = new GroupLayer({ title: "JPEG Haritalar", layers: [] });
-  function ensureMedia(index){
-    const which = `map${index}`; const path = `${RASTERS_DIR}/harita${index}.jpg`; const ex = JPEG_EXTENTS[which];
-    const lyrName = `Harita ${index}`;
-    const elem = new ImageElement({ image: path, extent: new Extent({ ...ex, spatialReference:{wkid:4326} }) });
-    const lyr = new MediaLayer({ title: lyrName, source: [elem], visible: true });
-    map.add(lyr, 0); // en altta
-    rasterGroup.layers.add(lyr);
-    return lyr;
-  }
-
-  // 4) Yükleme akışı
   (async function init(){
-    await view.when(); log('ok','View hazır');
+    try {
+      await view.when();
+      map.addMany([havza, mahalle]);
+      await Promise.all([ havza.when(), mahalle.when() ]);
 
-    // Vektörleri ekle (önce görünür bir şey):
-    map.addMany([havzaL, mahalleL]);
-    try{ await mahalleL.load(); log('ok', 'Mahalle yüklendi'); } catch(e){ log('err','Mahalle yüklenemedi: '+(e.message||e)); }
-    try{ await havzaL.load(); log('ok', 'Havza yüklendi'); } catch(e){ log('err','Havza yüklenemedi: '+(e.message||e)); }
+      // Extent hesapla (hangi katman doluysa ona git)
+      let exts = [];
+      try { const ex1 = await mahalle.queryExtent(); if(ex1 && ex1.extent && !ex1.extent.isEmpty){ exts.push(ex1.extent); } } catch(_){}
+      try { const ex2 = await havza.queryExtent();   if(ex2 && ex2.extent && !ex2.extent.isEmpty){ exts.push(ex2.extent); } } catch(_){}
 
-    // Boundary'i ayrı deneyelim
-    let maskAllowed=false; try{ await boundary.load(); const c = await boundary.queryFeatureCount(); maskAllowed = c>0; log(maskAllowed?'ok':'warn', maskAllowed?`Boundary OK (${c} feature)`: 'Boundary boş/404'); } catch(e){ log('warn','Boundary yüklenemedi: '+(e.message||e)); }
-    if(maskAllowed){ map.add(boundary); }
-
-    // Zoom mantığı
-    let go=false;
-    try{ const ex = await mahalleL.queryExtent(); if(ex && ex.extent && !ex.extent.isEmpty){ await view.goTo(ex.extent.expand(1.05)); go=true; log('ok','Yakınlaştır: Mahalle'); } }catch(_){ }
-    if(!go){ try{ const ex = await havzaL.queryExtent(); if(ex && ex.extent && !ex.extent.isEmpty){ await view.goTo(ex.extent.expand(1.05)); go=true; log('ok','Yakınlaştır: Havza'); } }catch(_){ }
-    if(!go){ await view.goTo({ center:[35,39], zoom:6 }); log('warn','Yakınlaştır: Varsayılan'); }
-
-    // Maske toggle
-    const maskToggle = $("mask-toggle");
-    function applyMask(on){ if(maskAllowed){ boundary.blendMode = on? 'destination-in' : null; log('ok', `Maske: ${on?'AÇIK':'KAPALI'}`);} else { boundary.blendMode=null; maskToggle.checked=false; } }
-    maskToggle.addEventListener('change', ()=> applyMask(maskToggle.checked));
-    applyMask(false); // başlangıçta KAPALI — önce veri görünsün
-
-    // JPEG toggles: tembel yükleme
-    $("lyr-map1").addEventListener('change', (e)=>{ if(e.target.checked){ media1 = media1||ensureMedia(1);} else if(media1){ media1.visible=false; } });
-    $("lyr-map2").addEventListener('change', (e)=>{ if(e.target.checked){ media2 = media2||ensureMedia(2);} else if(media2){ media2.visible=false; } });
-    $("lyr-map3").addEventListener('change', (e)=>{ if(e.target.checked){ media3 = media3||ensureMedia(3);} else if(media3){ media3.visible=false; } });
-
-    // Vektör görünürlük toggles
-    $("lyr-mahalle").addEventListener('change', (e)=> mahalleL.visible = e.target.checked);
-    $("lyr-havza").addEventListener('change', (e)=> havzaL.visible = e.target.checked);
-
-    runSelfTests();
-  })().catch(err=>{ log('err','Genel hata: '+(err.message||err)); });
-
-  // 5) GPS katmanı
-  const gpsLayer = new GraphicsLayer({ title: "GPS" });
-  const trackLayer = new GraphicsLayer({ title: "İz" });
-  map.addMany([trackLayer, gpsLayer]);
-
-  let watchId=null, lastPoint=null;
-  function drawPosition(pos){
-    const { latitude, longitude, accuracy } = pos.coords; const point = { type:'point', longitude, latitude }; lastPoint = point;
-    gpsLayer.removeAll();
-    gpsLayer.addMany([
-      new Graphic({ geometry: point, symbol: { type:'simple-marker', size:12, outline:{color:'white',width:1}, color:[59,130,246,1] } }),
-      new Graphic({ geometry: point, symbol: { type:'simple-marker', size: Math.max(30, Math.min(120, accuracy/2)), color:[59,130,246,0.12], outline:{ color:[59,130,246,0.5], width:1 } } })
-    ]);
-    const lastG = trackLayer.graphics.length ? trackLayer.graphics.getItemAt(trackLayer.graphics.length-1) : null;
-    if(lastG && lastG.geometry && lastG.geometry.type==='point'){
-      const prev = lastG.geometry; const line = { type:'polyline', paths:[[prev.longitude, prev.latitude],[longitude, latitude]] };
-      trackLayer.add(new Graphic({ geometry: line, symbol:{ type:'simple-line', width:2 } }));
-    } else {
-      trackLayer.add(new Graphic({ geometry: point, symbol:{ type:'simple-marker', size:4 } }));
+      if(exts.length){
+        const xmin = Math.min.apply(null, exts.map(e=>e.xmin));
+        const ymin = Math.min.apply(null, exts.map(e=>e.ymin));
+        const xmax = Math.max.apply(null, exts.map(e=>e.xmax));
+        const ymax = Math.max.apply(null, exts.map(e=>e.ymax));
+        await view.goTo(new Extent({ xmin, ymin, xmax, ymax, spatialReference:{ wkid: 4326 } }).expand(1.05));
+      } else {
+        show('Uyarı: GeoJSON dosyaları boş veya yüklenemedi (yol/isim kontrol edin).');
+      }
+    } catch (err) {
+      console.error(err);
+      show('Hata: '+ (err && err.message ? err.message : err));
     }
-  }
-  function startWatch(){ if(!navigator.geolocation){ showToast('Tarayıcı konumu desteklemiyor'); return; } if(watchId!==null) return; watchId = navigator.geolocation.watchPosition(drawPosition, (e)=> showToast('Konum alınamadı: '+e.message), { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }); showToast('Konum izleme: AÇIK'); }
-  function stopWatch(){ if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId=null; showToast('Konum izleme: KAPALI'); } }
-  $("watch-pos").addEventListener('change', (e)=> e.target.checked? startWatch() : stopWatch());
-  $("btn-center").addEventListener('click', ()=> lastPoint? view.goTo({ center:lastPoint, scale:3000 }): showToast('Önce konumu açın'));
-  $("btn-clear").addEventListener('click', ()=> { trackLayer.removeAll(); showToast('İz temizlendi'); });
-
-  // 6) Basit testler
-  function runSelfTests(){
-    console.group('✅ Kendini test et');
-    try{
-      console.assert(!!view && !!view.container, 'View yok');
-      console.assert(view.ready || true, 'View hazır değil');
-      console.log('Harita ve UI yüklendi. Eğer veri görünmüyorsa, Network sekmesinde 404/403 var mı kontrol edin.');
-    }catch(e){ console.error('SelfTest:', e); }
-    console.groupEnd();
-  }
+  })();
 });
 </script>
 </body>
