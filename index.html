@@ -108,10 +108,31 @@
         .toggle-icon.open {
             transform: rotate(180deg);
         }
+        .accuracy-info {
+            margin-top: 3px;
+            font-size: 11px;
+            color: #888;
+        }
+        .offline-warning {
+            display: none;
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: #FF9800;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div class="offline-warning" id="offline-warning">
+        <i class="fas fa-exclamation-triangle"></i> İnternet bağlantısı kesildi. Konum takibi devam ediyor.
+    </div>
     
     <div class="control-panel">
         <div class="control-group">
@@ -137,8 +158,11 @@
         </div>
         
         <div class="control-group">
-            <button id="location-btn">Konumumu Göster</button>
+            <button id="location-btn">
+                <i class="fas fa-location-arrow"></i> Hassas Konum Takibi
+            </button>
             <div class="location-status" id="location-status">Kapalı</div>
+            <div class="accuracy-info" id="accuracy-info"></div>
         </div>
         
         <div class="info">
@@ -152,12 +176,17 @@
 
         // Altlık haritalar (Basemaps)
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
         }).addTo(map);
 
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 19
         });
+
+        // Çevrimdışı durumda kullanılacak basit grid katmanı
+        const gridLayer = L.layerGroup();
 
         // Katman grupları
         const havzaLayer = L.layerGroup();
@@ -180,62 +209,186 @@
             fillColor: "#0000FF"
         };
 
-        // GeoJSON dosyalarını yükleme
-        fetch('Data/havza_wgs84.geojson')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Havza GeoJSON dosyası bulunamadı');
+        // Çevrimdışı izleme
+        let isOnline = navigator.onLine;
+        const offlineWarning = document.getElementById('offline-warning');
+        
+        function updateOnlineStatus() {
+            isOnline = navigator.onLine;
+            if (!isOnline) {
+                offlineWarning.style.display = 'block';
+                // Çevrimdışı grid ekle
+                addOfflineGrid();
+            } else {
+                offlineWarning.style.display = 'none';
+                // Çevrimiçiyse grid'i kaldır ve normal katmanları geri yükle
+                map.removeLayer(gridLayer);
+                if (map.hasLayer(osmLayer) || map.hasLayer(satelliteLayer)) {
+                    // Zaten bir katman yüklü, bir şey yapma
+                } else {
+                    // Hiçbir katman yüklü değilse, OSM'yi yükle
+                    osmLayer.addTo(map);
                 }
-                return response.json();
-            })
-            .then(data => {
-                L.geoJSON(data, {
-                    style: havzaStyle,
-                    onEachFeature: function(feature, layer) {
-                        if (feature.properties && feature.properties.name) {
-                            layer.bindPopup(`Havza: ${feature.properties.name}`);
-                        }
+            }
+        }
+        
+        function addOfflineGrid() {
+            // Mevcut katmanları kaldır
+            map.removeLayer(osmLayer);
+            map.removeLayer(satelliteLayer);
+            
+            // Grid katmanını temizle ve ekle
+            gridLayer.clearLayers();
+            
+            // Basit bir grid oluştur
+            const bounds = map.getBounds();
+            const zoom = map.getZoom();
+            const latLngStep = 0.01; // Grid adımı
+            
+            for (let lat = bounds.getSouth(); lat < bounds.getNorth(); lat += latLngStep) {
+                for (let lng = bounds.getWest(); lng < bounds.getEast(); lng += latLngStep) {
+                    // Grid çizgileri ekle
+                    if (zoom > 12) { // Yalnızca yüksek zoom seviyelerinde grid göster
+                        L.rectangle([[lat, lng], [lat + latLngStep, lng + latLngStep]], {
+                            color: '#ccc',
+                            weight: 0.5,
+                            fill: false
+                        }).addTo(gridLayer);
                     }
-                }).addTo(havzaLayer);
-                console.log('Havza sınırları başarıyla yüklendi');
-            })
-            .catch(error => {
-                console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
-                alert('Havza sınırları yüklenirken hata oluştu. Data/havza_wgs84.geojson dosya yolunu kontrol edin.');
-            });
+                }
+            }
+            
+            gridLayer.addTo(map);
+        }
 
-        fetch('Data/mahalle_wgs84.geojson')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Mahalle GeoJSON dosyası bulunamadı');
-                }
-                return response.json();
-            })
-            .then(data => {
-                L.geoJSON(data, {
-                    style: mahalleStyle,
-                    onEachFeature: function(feature, layer) {
-                        if (feature.properties && feature.properties.name) {
-                            layer.bindPopup(`Mahalle: ${feature.properties.name}`);
-                        }
+        // Çevrimdışı durumu dinle
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        
+        // GeoJSON dosyalarını yükleme
+        function loadGeoJSONData() {
+            fetch('Data/havza_wgs84.geojson')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Havza GeoJSON dosyası bulunamadı');
                     }
-                }).addTo(mahalleLayer);
-                console.log('Mahalle sınırları başarıyla yüklendi');
-            })
-            .catch(error => {
-                console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
-                alert('Mahalle sınırları yüklenirken hata oluştu. Data/mahalle_wgs84.geojson dosya yolunu kontrol edin.');
-            });
+                    return response.json();
+                })
+                .then(data => {
+                    L.geoJSON(data, {
+                        style: havzaStyle,
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties && feature.properties.name) {
+                                layer.bindPopup(`Havza: ${feature.properties.name}`);
+                            }
+                        }
+                    }).addTo(havzaLayer);
+                    console.log('Havza sınırları başarıyla yüklendi');
+                    
+                    // Veriyi localStorage'a kaydet (çevrimdışı kullanım için)
+                    try {
+                        localStorage.setItem('havzaData', JSON.stringify(data));
+                    } catch (e) {
+                        console.warn('Havza verisi localStorage\'a kaydedilemedi:', e);
+                    }
+                })
+                .catch(error => {
+                    console.error('Havza GeoJSON yüklenirken hata oluştu:', error);
+                    // Çevrimdışı durumda localStorage'dan yükle
+                    try {
+                        const savedData = localStorage.getItem('havzaData');
+                        if (savedData) {
+                            const data = JSON.parse(savedData);
+                            L.geoJSON(data, {
+                                style: havzaStyle,
+                                onEachFeature: function(feature, layer) {
+                                    if (feature.properties && feature.properties.name) {
+                                        layer.bindPopup(`Havza: ${feature.properties.name}`);
+                                    }
+                                }
+                            }).addTo(havzaLayer);
+                            console.log('Havza sınırları çevrimdışı önbellekten yüklendi');
+                        }
+                    } catch (e) {
+                        console.error('Çevrimdışı havza verisi yüklenemedi:', e);
+                    }
+                });
+
+            fetch('Data/mahalle_wgs84.geojson')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Mahalle GeoJSON dosyası bulunamadı');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    L.geoJSON(data, {
+                        style: mahalleStyle,
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties && feature.properties.name) {
+                                layer.bindPopup(`Mahalle: ${feature.properties.name}`);
+                            }
+                        }
+                    }).addTo(mahalleLayer);
+                    console.log('Mahalle sınırları başarıyla yüklendi');
+                    
+                    // Veriyi localStorage'a kaydet (çevrimdışı kullanım için)
+                    try {
+                        localStorage.setItem('mahalleData', JSON.stringify(data));
+                    } catch (e) {
+                        console.warn('Mahalle verisi localStorage\'a kaydedilemedi:', e);
+                    }
+                })
+                .catch(error => {
+                    console.error('Mahalle GeoJSON yüklenirken hata oluştu:', error);
+                    // Çevrimdışı durumda localStorage'dan yükle
+                    try {
+                        const savedData = localStorage.getItem('mahalleData');
+                        if (savedData) {
+                            const data = JSON.parse(savedData);
+                            L.geoJSON(data, {
+                                style: mahalleStyle,
+                                onEachFeature: function(feature, layer) {
+                                    if (feature.properties && feature.properties.name) {
+                                        layer.bindPopup(`Mahalle: ${feature.properties.name}`);
+                                    }
+                                }
+                            }).addTo(mahalleLayer);
+                            console.log('Mahalle sınırları çevrimdışı önbellekten yüklendi');
+                        }
+                    } catch (e) {
+                        console.error('Çevrimdışı mahalle verisi yüklenemedi:', e);
+                    }
+                });
+        }
 
         // Konum takibi
         let locationMarker = null;
         let locationCircle = null;
         let isTracking = false;
         let watchId = null;
+        let positionHistory = [];
+        const MAX_POSITION_HISTORY = 100;
 
         function onLocationFound(e) {
             const radius = e.accuracy / 2;
             const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
+            
+            // Konum geçmişini kaydet
+            positionHistory.push({
+                latlng: e.latlng,
+                accuracy: e.accuracy,
+                timestamp: new Date()
+            });
+            
+            // Eski konumları temizle
+            if (positionHistory.length > MAX_POSITION_HISTORY) {
+                positionHistory.shift();
+            }
+            
+            // Hassas konum için filtreleme uygula (ortalama al)
+            const filteredPosition = filterPosition(positionHistory);
             
             if (locationMarker) {
                 map.removeLayer(locationMarker);
@@ -244,54 +397,142 @@
                 map.removeLayer(locationCircle);
             }
 
-            locationMarker = L.marker(e.latlng).addTo(map)
-                .bindPopup(`<b>Bulunduğunuz konum</b><br>Enlem: ${e.latlng.lat.toFixed(6)}<br>Boylam: ${e.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(e.accuracy)} metre`).openPopup();
+            locationMarker = L.marker(filteredPosition.latlng).addTo(map)
+                .bindPopup(`<b>Bulunduğunuz konum</b><br>Enlem: ${filteredPosition.latlng.lat.toFixed(6)}<br>Boylam: ${filteredPosition.latlng.lng.toFixed(6)}<br>Doğruluk: ${Math.round(filteredPosition.accuracy)} metre`).openPopup();
 
-            locationCircle = L.circle(e.latlng, radius).addTo(map);
+            locationCircle = L.circle(filteredPosition.latlng, filteredPosition.accuracy / 2).addTo(map);
             
-            statusElement.innerHTML = `Aktif | Doğruluk: ${Math.round(e.accuracy)}m`;
+            statusElement.innerHTML = `Aktif | Doğruluk: ${Math.round(filteredPosition.accuracy)}m`;
             statusElement.style.color = 'green';
+            
+            accuracyElement.innerHTML = `Hassasiyet: ${getAccuracyLevel(filteredPosition.accuracy)}`;
             
             // Harita görünümünü konuma odakla (ilk seferinde)
             if (!isTracking) {
-                map.setView(e.latlng, 16);
+                map.setView(filteredPosition.latlng, 18); // Daha yüksek zoom
                 isTracking = true;
             }
+        }
+        
+        // Konum filtreleme (ortalama alma)
+        function filterPosition(history) {
+            if (history.length === 0) return null;
+            if (history.length === 1) return history[0];
+            
+            // Son 5 konumun ortalamasını al
+            const recentPositions = history.slice(-5);
+            let totalLat = 0;
+            let totalLng = 0;
+            let totalAccuracy = 0;
+            
+            recentPositions.forEach(pos => {
+                totalLat += pos.latlng.lat;
+                totalLng += pos.latlng.lng;
+                totalAccuracy += pos.accuracy;
+            });
+            
+            const avgLat = totalLat / recentPositions.length;
+            const avgLng = totalLng / recentPositions.length;
+            const avgAccuracy = totalAccuracy / recentPositions.length;
+            
+            return {
+                latlng: L.latLng(avgLat, avgLng),
+                accuracy: avgAccuracy
+            };
+        }
+        
+        // Hassasiyet seviyesini metin olarak döndür
+        function getAccuracyLevel(accuracy) {
+            if (accuracy < 10) return "Çok Yüksek";
+            if (accuracy < 30) return "Yüksek";
+            if (accuracy < 50) return "Orta";
+            if (accuracy < 100) return "Düşük";
+            return "Çok Düşük";
         }
 
         function onLocationError(e) {
             const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
+            
             statusElement.innerHTML = 'Hata: Konum alınamadı';
             statusElement.style.color = 'red';
+            accuracyElement.innerHTML = '';
+            
             console.error("Konum bilgisi alınamadı: ", e.message);
             alert("Konum bilgisi alınamadı. Lütfen tarayıcınızın konum iznini etkinleştirin.");
         }
 
         function startLocationTracking() {
             const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
             
             if (navigator.geolocation) {
-                statusElement.innerHTML = 'Konum aranıyor...';
+                statusElement.innerHTML = 'Yüksek hassasiyetli konum aranıyor...';
                 statusElement.style.color = 'blue';
+                accuracyElement.innerHTML = 'GPS kalibrasyonu yapılıyor...';
                 
-                // Yüksek doğrulukla konum alma
+                // Maksimum hassasiyet için ayarlar
+                const options = {
+                    enableHighAccuracy: true,  // Yüksek hassasiyet modu
+                    timeout: 10000,           // Maksimum 10 saniye bekle
+                    maximumAge: 0             // Önbelleğe alınmış konumları kabul etme
+                };
+                
+                // Konum izlemeyi başlat
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        // Leaflet formatına dönüştür
+                        const latlng = L.latLng(
+                            position.coords.latitude,
+                            position.coords.longitude
+                        );
+                        
+                        // Leaflet locationfound event'ini tetikle
+                        map.fire('locationfound', {
+                            latlng: latlng,
+                            accuracy: position.coords.accuracy,
+                            altitude: position.coords.altitude,
+                            altitudeAccuracy: position.coords.altitudeAccuracy,
+                            heading: position.coords.heading,
+                            speed: position.coords.speed
+                        });
+                    },
+                    (error) => {
+                        onLocationError({ message: getGeoErrorText(error.code) });
+                    },
+                    options
+                );
+                
+                // Harita konum izleme olaylarını da dinle (çift kontrol)
                 map.locate({
                     watch: true,
                     setView: false,
-                    maxZoom: 18,
+                    maxZoom: 19,
                     enableHighAccuracy: true,
-                    timeout: 30000,
+                    timeout: 10000,
                     maximumAge: 0
                 });
             } else {
                 statusElement.innerHTML = 'Tarayıcınız konum desteği sağlamıyor';
                 statusElement.style.color = 'red';
+                accuracyElement.innerHTML = '';
                 alert("Tarayıcınız konum izleme özelliğini desteklemiyor.");
+            }
+        }
+        
+        // Geolocation API hata kodlarını metne çevir
+        function getGeoErrorText(code) {
+            switch(code) {
+                case 1: return 'Konum erişim izni reddedildi';
+                case 2: return 'Konum bilgisi alınamadı';
+                case 3: return 'Konum alma işlemi zaman aşımına uğradı';
+                default: return 'Bilinmeyen hata';
             }
         }
 
         function stopLocationTracking() {
             const statusElement = document.getElementById('location-status');
+            const accuracyElement = document.getElementById('accuracy-info');
             
             if (locationMarker) {
                 map.removeLayer(locationMarker);
@@ -302,9 +543,16 @@
                 locationCircle = null;
             }
             
+            // Her iki izleme yöntemini de durdur
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
             map.stopLocate();
+            
             statusElement.innerHTML = 'Kapalı';
             statusElement.style.color = '#666';
+            accuracyElement.innerHTML = '';
             isTracking = false;
         }
 
@@ -328,6 +576,7 @@
         // Buton olayları
         document.getElementById('osm-btn').addEventListener('click', function() {
             map.removeLayer(satelliteLayer);
+            map.removeLayer(gridLayer);
             osmLayer.addTo(map);
             this.classList.add('active');
             document.getElementById('satellite-btn').classList.remove('active');
@@ -335,6 +584,7 @@
 
         document.getElementById('satellite-btn').addEventListener('click', function() {
             map.removeLayer(osmLayer);
+            map.removeLayer(gridLayer);
             satelliteLayer.addTo(map);
             this.classList.add('active');
             document.getElementById('osm-btn').classList.remove('active');
@@ -373,6 +623,13 @@
         // Konum bulma olaylarını dinle
         map.on('locationfound', onLocationFound);
         map.on('locationerror', onLocationError);
+        
+        // Yakınlaştırma ve kaydırma sırasında grid'i güncelle (çevrimdışı mod için)
+        map.on('moveend', function() {
+            if (!isOnline) {
+                addOfflineGrid();
+            }
+        });
 
         // Varsayılan olarak OSM butonunu aktif göster
         document.getElementById('osm-btn').classList.add('active');
@@ -381,6 +638,12 @@
         document.getElementById('basemap-content').classList.add('open');
         document.getElementById('layers-content').classList.add('open');
         document.querySelectorAll('.toggle-icon').forEach(icon => icon.classList.add('open'));
+        
+        // Sayfa yüklendiğinde GeoJSON verilerini yükle
+        loadGeoJSONData();
+        
+        // Çevrimdışı durumu kontrol et
+        updateOnlineStatus();
     </script>
 </body>
 </html>
